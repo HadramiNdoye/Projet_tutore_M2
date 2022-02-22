@@ -15,13 +15,14 @@ library(survival)
 library(lcmm)
 library(ggpubr)
 library(ggridges)
+library(eeptools) # age_calc
 ```
 
 
 ```{r}
 # Chargement des données
 #data = read_xlsx("../input/projet/poids.xlsx")
-raw = read_xlsx("~/M2/projet/poids.xlsx") # 198 x 19 # nolint
+raw = read_xlsx("~/M2/Projet/Projet_tutore_M2/data/raw/poids.xlsx") # 198 x 19 # nolint
 ```
 
 ```{r}
@@ -175,9 +176,12 @@ data_net2 = right_join(data_net %>% filter(mmuscle <= 50),IDS)
 
 ```{r}
 data_net = data_net2 %>%
-select(!c(dateNaissance,Annee))
+select(!c(dateNaissance,Annee,Jour))
 ```
 
+```{r}
+write_csv(data_net2,"poids_cleaned")
+```
 
 ```{r}
 
