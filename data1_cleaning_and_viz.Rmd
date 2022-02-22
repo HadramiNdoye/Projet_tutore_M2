@@ -462,7 +462,10 @@ data_net3$ID = as.numeric(levels(data_net3$ID))[data_net3$ID]
 
 ```
 
-```{r}
+# Trying the model
+
+
+```{r, include = FALSE}
 data_analyze = data_net3 %>%
 mutate(time = case_when(
       certif == 'cs8' ~ 0,
@@ -479,23 +482,23 @@ select(ID,size,weight,sexe,time,alt_group,age)
 
 ```
 
-```{r}
+```{r, include =FALSE}
 # weight
 model1 <- lcmm(weight ~ time, subject = "ID", ng = 1, data = as.data.frame(data_analyze),link = "splines")
 model11 <- lcmm(weight ~ time, subject = "ID", ng = 2, data = as.data.frame(data_analyze), mixture =~ time, B = model1, link = "splines")
 ```
 
-```{r}
+```{r, include = FALSE}
 newdata = data.frame(time=seq(0,2,length=4266))
 ```
 
-```{r}
+```{r, include = FALSE}
 plotpred <- predictY(model1, newdata, var.time = "time",draws = TRUE)
 plot(plotpred)
 
 ```
 
-```{r}
+```{r, include=FALSE}
 # weight
 model1 <- hlme(weight ~ time, subject = "ID", ng = 1, data = as.data.frame(data_analyze))
 model11 <- hlme(weight ~ time, subject = "ID", ng = 2, data = as.data.frame(data_analyze), mixture =~ time, B = model1)
@@ -504,17 +507,17 @@ model11 <- hlme(weight ~ time, subject = "ID", ng = 2, data = as.data.frame(data
 # %% [markdown]
 # 
 
-```{r}
+```{r, include = FALSE}
 summarytable(model11)
 ```
 
-```{r}
+```{r, include = FALSE}
 newdata = data_analyze %>%
 select(time) %>%
 data.frame()
 ```
 
-```{r}
+```{r, include = FALSE}
 # poids simple
 #visit_year = sample(data_net$visit_year, size = 500, replace = TRUE)
 #newdata=data.frame(visit_year)
@@ -522,14 +525,14 @@ plotpred <- predictY(model1, newdata, var.time = "time",draws = TRUE)
 plot(plotpred)
 ```
 
-```{r}
+```{r, include = FALSE}
 #datnew   <- data.frame(sample(data_net$mother_age, size = 500, replace = TRUE))
 
 plotpred <- predictY(model1, newdata, var.time ="time", draws = TRUE)
 plot(plotpred)
 ```
 
-```{r}
+```{r, include = FALSE}
 #taille simple
 # hlme(weight ~ time, subject = "ID", ng = 1, data = as.data.frame(data_analyze))
 model1.2 = hlme(size ~ time, subject = "ID", ng = 1, data = as.data.frame(data_analyze))
@@ -540,21 +543,21 @@ plot(plotpred)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 model2 <- hlme(size ~ time * sexe, random =~ time, subject = 'ID', ng = 1, data = as.data.frame(data_analyze))
 
 model3 <- hlme(size ~ time * sexe, random =~ time, subject = 'ID', ng = 2, data = as.data.frame(data_analyze), mixture =~ time, B = model2)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 newdata2 = data_analyze %>%
 select(time,sexe) %>%
 data.frame()
 
 ```
 
-```{r}
+```{r, include = FALSE}
 #sexe=data_net$sexe
 #newdata1=data.frame(visit_year=seq(2008,2021,length=500), sexe)
 plotpred <- predictY(model2, newdata = newdata2, var.time = "time")
@@ -563,7 +566,7 @@ plot(plotpred)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 #sexe=data_net3$sexe
 #alt_group = data_net3$alt_group
 #mother_age = data_net3$mother_age
@@ -573,7 +576,7 @@ plot(plotpred)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 # poids et taille simple
 mult1 <- multlcmm(size + weight ~ time, random =~ time, subject = "ID",randomY = TRUE,  cor = BM(time), link="linear", data = as.data.frame(data_analyze))
 
@@ -581,7 +584,7 @@ mult2 = multlcmm(size + weight ~ time , random =~ time, subject = 'ID', ng = 3, 
 
 ```
 
-```{r}
+```{r, include = FALSE}
 #visit_year = sample(data_net$visit_year, size = 500, replace = TRUE)
 #newdata=data.frame(visit_year)
 plotpred <- predictY(mult2, newdata2, var.time = "time",draws = TRUE)
@@ -589,7 +592,7 @@ plot(plotpred)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 data_net3 %>%
 select(age) %>%
 unique()
@@ -599,7 +602,7 @@ unique()
 
 ```
 
-```{r}
+```{r, include = FALSE}
 # poids et taille simple
 mult1 <- multlcmm(size + weight ~ time, random =~ time, subject = "ID",randomY = TRUE,  cor = BM(time), link="linear", data = as.data.frame(data_analyze))
 
@@ -607,32 +610,32 @@ mult2 = multlcmm(size + weight ~ time , random =~ time, subject = 'ID', ng = 3, 
 
 ```
 
-```{r}
+```{r, include = FALSE}
 plotpred <- predictY(mult2, newdata2, var.time = "time",draws = TRUE)
 plot(plotpred)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 data_analyze %>%
 head()
 
 ```
 
-```{r}
+```{r, include = FALSE}
 model2 <- lcmm(weight ~ age,mixture = ~ age,random = ~age ,subject = "ID",ng = 5, data = as.data.frame(data_analyze),link="splines") #,B=model1)
 plotpred2 <- predictY(model2, new_data3,var.time="age")
 plot(plotpred2)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 new_data = data_analyze %>%
 select(time)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 model2 <- lcmm(weight ~ time,mixture = ~ time,random = ~time ,subject = "ID",ng = 5, data = as.data.frame(data_analyze),link="splines") #,B=model1)
 plotpred2 <- predictY(model2, new_data,var.time="time",draws = FALSE)
 plot(plotpred2)
@@ -641,14 +644,14 @@ plot(plotpred2)
 # %% [markdown]
 # ## SIZE
 
-```{r}
+```{r, include = FALSE}
 model3 <- lcmm(size ~ age,mixture = ~ age,random = ~age ,subject = "ID",ng = 4, data = as.data.frame(data_analyze),link="splines") #,B=model1)
 plotpred_size <- predictY(model3, new_data3,var.time="age",draws = FALSE)
 plot(plotpred_size)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 model4 <- lcmm(size ~ time,mixture = ~ time,random = ~time ,subject = "ID",ng = 4, data = as.data.frame(data_analyze),link="splines") #,B=model1)
 plotpred_size2 <- predictY(model4, new_data,var.time="time",draws = FALSE)
 plot(plotpred_size2)
@@ -666,25 +669,25 @@ plot(plotpred_size2)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 newdata4 = data_analyze %>%
 select(age,time)
 
 
 ```
 
-```{r}
+```{r, include = FALSE}
 m1.mult <- multlcmm(weight+size~time,subject = "ID",mixture=~time, ng = 4,random=~age, data = as.data.frame(data_analyze),link="splines")
 plotpred <- predictY(m1.mult, newdata4, var.time = "time")
 
 ```
 
-```{r}
+```{r, include = FALSE}
 plot(plotpred)
 
 ```
 
-```{r}
+```{r, include = FALSE}
 m1.mult <- multlcmm(weight+size~time,subject = "ID",mixture=~time, ng = 4,random=~age, data = as.data.frame(data_analyze))
 plotpred <- predictY(m1.mult, newdata4, var.time = "time")
 plot(plotpred)
