@@ -21,14 +21,14 @@ library(ggridges)
 ```{r}
 # Chargement des données
 #data = read_xlsx("../input/projet/poids.xlsx")
-data = read_xlsx("../input/projet/measures_pmi.xlsx") # 269057 x 10
-bineta = read.csv("../input/projet/data_gbtm2008.csv") # 20981 x 8
+raw = read_xlsx("~/M2/Projet/Projet_tutore_M2/data/raw/measures_pmi.xlsx")
 ```
 
 
 ### Description des différentes variables :
 
 ```{r}
+data = raw
 # check factor levels
 data$certif %>%
 unique() %>%
@@ -469,7 +469,7 @@ model11 <- lcmm(weight ~ time, subject = "ID", ng = 2, data = as.data.frame(data
 ```
 
 ```{r}
-newdata = data.frame(time=seq(1,12,length=4266))
+newdata = data.frame(time=seq(0,2,length=4266))
 ```
 
 ```{r}
