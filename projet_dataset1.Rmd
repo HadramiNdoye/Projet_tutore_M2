@@ -438,6 +438,23 @@ data_net3 = right_join(data_net2 %>% filter(!certif == 'cs9'),IDS3)
 ```
 
 ```{r}
+IDS4 = data_net2 %>%
+group_by(ID) %>%
+count() %>%
+filter(n == 4) %>%
+select(ID)
+
+data_net4 = right_join(data_net2 ,IDS4)
+```
+
+```{r}
+# writing data
+write_csv(data_net4,"data_4_certif_cleaned")
+write_csv(data_net3,"data_3_certif_cleaned")
+
+```
+
+```{r}
 #data_net3$certif=factor(data_net3$certif)
 data_net3$visit_year = as.numeric(levels(data_net3$visit_year))[data_net3$visit_year]
 data_net3$birth_year = as.numeric(levels(data_net3$birth_year))[data_net3$birth_year]
@@ -488,7 +505,7 @@ model11 <- hlme(weight ~ time, subject = "ID", ng = 2, data = as.data.frame(data
 # 
 
 ```{r}
-summary(model1)
+summarytable(model11)
 ```
 
 ```{r}
