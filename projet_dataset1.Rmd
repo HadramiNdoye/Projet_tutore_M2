@@ -1,0 +1,676 @@
+---
+title: "Projet_tut"
+author: "Ely Barbaza"
+date: "17/02/2022"
+output: html_document
+---
+
+
+```{r}
+# Chargement des librairies
+library(readxl)
+library(tidyr)
+library(tidyverse)
+library(survival)
+library(lcmm)
+library(ggpubr)
+library(ggridges)
+```
+
+
+```{r}
+# Chargement des données
+#data = read_xlsx("../input/projet/poids.xlsx")
+data = read_xlsx("../input/projet/measures_pmi.xlsx") # 269057 x 10
+bineta = read.csv("../input/projet/data_gbtm2008.csv") # 20981 x 8
+```
+
+
+### Description des différentes variables :
+
+```{r}
+# check factor levels
+data$certif %>%
+unique() %>%
+as.factor() %>%
+nlevels()
+```
+
+
+#### Catégorielle
+ - **certif** : 4 valeurs {cs8,cs24,bsem,cs9}
+ - **ID** : 193500 valeurs
+ - **alt_group** : 3 valeurs {0,1,2}
+ - **visit_year** : 13 valeurs {2008-2021}
+ - **sexe** : 3 valeurs {Masculin,Féminin,Indéterminé} (présence de NA)
+ - **home_birth_insee** : 520 valeurs (présence de NA)
+ - **birth_year** : 14 valeurs (présence de NA)
+ 
+#### Numérique 
+ 
+ | MOMENTS | weight   (kg)        | size   (cm ?)          | mother_age |
+ | ------------- | ------------------- | ------ |----|
+ | **Minimum**        |  0.510              | 19.80 | -4.0 |
+ | **1st quartile**    |  3.130  | 49.00 | 27.0  |
+ | **Median**   |  3.550  | 51.00| 31.0 |
+ | **Mean**   |  6.555  | 64.17 |30.7 |
+ | **3rd quartile**    |  11.000   |86.00 |34.0 |
+ | **Max**   | 30.000  | 120.00 | 57.0 |
+ | **NA's**   | 14334  |37356| 1421 |
+
+```{r}
+# filter mother under 15
+data %>%
+select(mother_age) %>%
+filter(mother_age < 15) %>%
+unique()
+```
+
+
+ On remarque différentes choses :
+ - Beaucoup de valeurs manquantes (NA's). Nous détaillerons comment traiter cela plus bas.
+ - La variable mother_age contient plusieurs données observations incohérentes. La puberté chez une femme commençant entre 8 et 13 ans, nous supprimons donc les observations avec des variables inférieurs à 8.
+
+```{r}
+data_net2 = data %>%
+filter(mother_age >= 8) %>%
+drop_na(visit_year,birth_year,size,weight) %>%
+select(!home_birth_insee)
+```
+
+ # Statistique descriptive
+ 
+ ## Valeurs manquantes (NA)
+ La dataframe comporte beaucoup de valeurs manquantes notamment pour les variables :
+ 
+ - **size**(37356)
+ 
+ - **visit_year**(11744)
+ 
+ - **weight**(14334)
+ 
+ - **home_birth_insee**(201278)
+ 
+ - **mother_age**(1421)
+ 
+ - **birth_year**(1421)
+ 
+ Nous avons la possibilité de de supprimer ou de de remplacer les valeurs manquantes par la moyenne (ou médiane) des valeurs de la colonne (variable) concernée. Étant donné que le nombre élévé de valeurs manquante il serait plus judicieux d'opter pour la seconde possibilité.
+
+ La variable home_birth_insee ne sera pas pris en compte, en effet 75% de ses données sont manquantes.
+ De plus,les observations contenant une cellule manquante pour les variables visit_year et birth_year sera supprimée. Ces informations ne pouvant être recupéré artificellement.
+ 
+ Après analyse, le remplacement des valeurs inconnues des variables size et weight on été abandonné. En effet, des valeurs incohérentes ont été retrouvés. Nous avons finalement supprimé les lignes correspondant.
+
+
+ MEDIANE WAY
+
+```{r}
+# size NA
+#data_net2 <- data_net2 %>%
+#     mutate(size=replace_na(size, median(size, na.rm=TRUE)))
+# weight NA
+#data_net2 <- data_net2 %>%
+#     mutate(weight=replace_na(weight, median(weight, na.rm=TRUE)))
+
+# mother_age NA
+data_net2 <- data_net2 %>%
+     mutate(mother_age=replace_na(mother_age, median(mother_age, na.rm=TRUE)))
+```
+
+```{r}
+# création de la variable age
+data_net2$birth_year = as.numeric(data_net2$birth_year)
+data_net2$visit_year = as.numeric(data_net2$visit_year)
+
+data_net2 = data_net2 %>%
+mutate(age = visit_year - birth_year)
+
+```
+
+```{r}
+# suppression des âges incohérents
+data_net2 = subset(data_net2, age >= 0)
+
+```
+
+```{r}
+# mise en facteur des covariables catégorielles
+data_net2$certif=factor(data_net2$certif)
+data_net2$ID=factor(data_net2$ID)
+data_net2$alt_group=factor(data_net2$alt_group)
+data_net2$visit_year=factor(data_net2$visit_year)
+data_net2$sexe=factor(data_net2$sexe)
+data_net2$birth_year=factor(data_net2$birth_year)
+```
+
+# %% [markdown] {"execution":{"iopub.status.busy":"2022-02-01T17:15:20.241548Z","iopub.execute_input":"2022-02-01T17:15:20.243749Z","iopub.status.idle":"2022-02-01T17:15:20.259147Z"}}
+# Looking at the summary
+
+```{r}
+summary(data_net2)
+# certif,ID
+# size, weight NUMERIC
+# [visit_year, birth_year, age] + mother_age NUMERIC (TIME)
+# sexe, alt_group CATEGORIC
+```
+
+```{r}
+data_net2 %>%
+group_by(ID) %>%
+count() %>%
+table() %>%
+colSums()
+
+# 1 => 124328 2 => 54106 3 => 4163 4 => 79
+# count per occurences
+```
+
+# %% [markdown]
+# On remarque également que
+# - la représentation des certificats n'est pas uniforme (majorité cs8)
+# - 50% des patients n'ont qu'une seule certification, 25% ont en 2, 15% ont en 3 et moins d'un pourcent ont en 4.
+# - alt_group non plus ()
+# - la plupart des patients sont des nouveaux-nés
+
+# %% [markdown]
+# # Visualisation
+# 
+# C'est différentes visualisations nous permettrons de voir des anomalies ou des données aberrantes.
+# 
+# **Variables numériques**
+
+```{r}
+# BASIQUE
+# NUM ONLY (1 or more)
+# stratify specially by certif (prendre la certif majoritaire)
+
+# 1/ global basique
+# densité variable numérique (ou boxplot)
+data_net2 %>%
+        select_if(is.numeric) %>%
+        gather(variable, value) %>%
+        ggplot(aes(x=value, fill=variable, colour=variable))+
+        geom_density()+
+        facet_wrap(~variable, scales="free")
+```
+
+```{r}
+head(data_net2)
+
+# %% [markdown]
+# ## Difference between certifications
+```
+
+```{r}
+p5 = ggplot(data_net2, aes(x = mother_age, y = certif, fill = certif)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p5, top = text_grob("Densité des variables numériques stratifié par mother_age", face = "bold", size = 15))
+
+
+p6 = ggplot(data_net2, aes(x = age, y = certif, fill = certif)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p6, top = text_grob("Densité des variables numériques stratifié par age", face = "bold", size = 15))
+
+
+p7 = ggplot(data_net2, aes(x = size, y = certif, fill = certif)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p7, top = text_grob("Densité des variables numériques stratifié par size", face = "bold", size = 15))
+
+
+p8 = ggplot(data_net2, aes(x = weight, y = certif, fill = certif)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p8, top = text_grob("Densité des variables numériques stratifié par weight", face = "bold", size = 15))
+
+
+# %% [markdown]
+# ## Difference between sexe
+
+```
+
+```{r}
+p9 = ggplot(data_net2, aes(x = mother_age, y = sexe, fill = sexe)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p9, top = text_grob("Densité des variables numériques stratifié par mother_age", face = "bold", size = 15))
+
+
+p10 = ggplot(data_net2, aes(x = age, y = sexe, fill = sexe)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p10, top = text_grob("Densité des variables numériques stratifié par age", face = "bold", size = 15))
+
+
+p11 = ggplot(data_net2, aes(x = size, y = sexe, fill = sexe)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p11, top = text_grob("Densité des variables numériques stratifié par size", face = "bold", size = 15))
+
+
+p12 = ggplot(data_net2, aes(x = weight, y = sexe, fill = sexe)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p12, top = text_grob("Densité des variables numériques stratifié par weight", face = "bold", size = 15))
+
+```
+
+# %% [markdown]
+# ## Difference between alt_group
+
+```{r}
+p9 = ggplot(data_net2, aes(x = mother_age, y = alt_group, fill = alt_group)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p9, top = text_grob("Densité des variables numériques stratifié par mother_age", face = "bold", size = 15))
+
+
+p10 = ggplot(data_net2, aes(x = age, y = alt_group, fill = alt_group)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p10, top = text_grob("Densité des variables numériques stratifié par age", face = "bold", size = 15))
+
+
+p11 = ggplot(data_net2, aes(x = size, y = alt_group, fill = alt_group)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p11, top = text_grob("Densité des variables numériques stratifié par size", face = "bold", size = 15))
+
+
+p12 = ggplot(data_net2, aes(x = weight, y = alt_group, fill = alt_group)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p12, top = text_grob("Densité des variables numériques stratifié par weight", face = "bold", size = 15))
+```
+
+```{r}
+# 2/ numeric only (weight,size)
+data_net2 %>%
+        ggplot(aes(x=weight, y=size, color=sexe))+
+        geom_point()
+
+# (age vs weight)
+data_net2 %>%
+        ggplot(aes(x=age, y=weight, color=sexe))+
+        geom_point()
+
+# (age vs size)
+data_net2 %>%
+        ggplot(aes(x=age, y=size, color=sexe))+
+        geom_point()
+```
+
+# %% [markdown]
+# ### Variables catégorielles 
+
+```{r}
+# histogram birth_year or visit_year or age
+# stratify by sexe & alt_group
+# stratify specially by certif (prendre la certif majoritaire)
+
+# 1/ BY SEX
+# birth year
+p1 = data_net2 %>%
+group_by(birth_year) %>%
+ggplot(aes(birth_year)) +
+geom_bar(aes(fill = sexe)) +
+theme(axis.text.x=element_text(angle=45))
+
+# visit_year
+p2 = data_net2 %>%
+group_by(visit_year) %>%
+ggplot(aes(visit_year)) +
+geom_bar(aes(fill = sexe)) +
+theme(axis.text.x=element_text(angle=45))
+
+# age
+p3 = data_net2 %>%
+group_by(age) %>%
+ggplot(aes(age)) +
+geom_bar(aes(fill = sexe))
+
+plot = ggarrange(p1, p2, p3, ncol = 2, nrow = 2,common.legend = TRUE)
+annotate_figure(plot, top = text_grob("Le sexe stratifié par différentes covariables", face = "bold", size = 15))
+```
+
+```{r}
+# histogram birth_year or visit_year or age
+# stratify by sexe & alt_group
+# stratify specially by certif (prendre la certif majoritaire)
+
+# 1/ BY SEX
+# birth year
+p1 = data_net2 %>%
+group_by(birth_year) %>%
+ggplot(aes(birth_year)) +
+geom_bar(aes(fill = alt_group)) +
+theme(axis.text.x=element_text(angle=45))
+
+# visit_year
+p2 = data_net2 %>%
+group_by(visit_year) %>%
+ggplot(aes(visit_year)) +
+geom_bar(aes(fill = alt_group)) +
+theme(axis.text.x=element_text(angle=45))
+
+# age
+p3 = data_net2 %>%
+group_by(age) %>%
+ggplot(aes(age)) +
+geom_bar(aes(fill = alt_group))
+
+plot = ggarrange(p1, p2, p3, ncol = 2, nrow = 2,common.legend = TRUE)
+annotate_figure(plot, top = text_grob("Alt group stratifié par différentes covariables", face = "bold", size = 15))
+
+```
+
+```{r}
+# histogram birth_year or visit_year or age
+# stratify by sexe & alt_group
+# stratify specially by certif (prendre la certif majoritaire)
+
+# 1/ BY SEX
+# birth year
+p1 = data_net2 %>%
+group_by(birth_year) %>%
+ggplot(aes(birth_year)) +
+geom_bar(aes(fill = certif)) +
+theme(axis.text.x=element_text(angle=45))
+
+# visit_year
+p2 = data_net2 %>%
+group_by(visit_year) %>%
+ggplot(aes(visit_year)) +
+geom_bar(aes(fill = certif)) +
+theme(axis.text.x=element_text(angle=45))
+
+# age
+p3 = data_net2 %>%
+group_by(age) %>%
+ggplot(aes(age)) +
+geom_bar(aes(fill = certif))
+
+plot = ggarrange(p1, p2, p3, ncol = 2, nrow = 2,common.legend = TRUE)
+annotate_figure(plot, top = text_grob("Certif stratifié par différentes covariables", face = "bold", size = 15))
+```
+
+# %% [markdown] {"execution":{"iopub.status.busy":"2022-02-01T17:24:29.255247Z","iopub.execute_input":"2022-02-01T17:24:29.257175Z","iopub.status.idle":"2022-02-01T17:24:29.29075Z"}}
+# On remarque grâce à "summary" que :
+# - les valeurs de "certif" ne sont pas équivalentes, certains patients possèdent 4 certif, d'autres seulement 2 etc...
+# - 
+
+```{r}
+data_net2 %>%
+filter(ID == '1212009554')
+
+```
+
+```{r}
+IDS3 = data_net2 %>%
+filter(!certif == 'cs9') %>%
+group_by(ID) %>%
+count() %>%
+filter(n == 3) %>%
+select(ID)
+
+#IDS4 = data_net2 %>%
+#group_by(ID) %>%
+#count() %>%
+#filter(n == 4)
+
+data_net3 = right_join(data_net2 %>% filter(!certif == 'cs9'),IDS3)
+
+```
+
+```{r}
+#data_net3$certif=factor(data_net3$certif)
+data_net3$visit_year = as.numeric(levels(data_net3$visit_year))[data_net3$visit_year]
+data_net3$birth_year = as.numeric(levels(data_net3$birth_year))[data_net3$birth_year]
+data_net3$ID = as.numeric(levels(data_net3$ID))[data_net3$ID]
+
+```
+
+```{r}
+data_analyze = data_net3 %>%
+mutate(time = case_when(
+      certif == 'cs8' ~ 0,
+      certif == 'cs24' ~ 1,
+      certif == 'bsem' ~ 2
+    )) %>%
+select(ID,size,weight,sexe,time,alt_group,age)
+
+# %% [markdown]
+# # Modèle linéaire mixte à classes latentes : le modèle 
+
+# %% [markdown]
+# # VARIABLE TEMPORELLE : (certif)
+
+```
+
+```{r}
+# weight
+model1 <- lcmm(weight ~ time, subject = "ID", ng = 1, data = as.data.frame(data_analyze),link = "splines")
+model11 <- lcmm(weight ~ time, subject = "ID", ng = 2, data = as.data.frame(data_analyze), mixture =~ time, B = model1, link = "splines")
+```
+
+```{r}
+newdata = data.frame(time=seq(1,12,length=4266))
+```
+
+```{r}
+plotpred <- predictY(model1, newdata, var.time = "time",draws = TRUE)
+plot(plotpred)
+
+```
+
+```{r}
+# weight
+model1 <- hlme(weight ~ time, subject = "ID", ng = 1, data = as.data.frame(data_analyze))
+model11 <- hlme(weight ~ time, subject = "ID", ng = 2, data = as.data.frame(data_analyze), mixture =~ time, B = model1)
+```
+
+# %% [markdown]
+# 
+
+```{r}
+summary(model1)
+```
+
+```{r}
+newdata = data_analyze %>%
+select(time) %>%
+data.frame()
+```
+
+```{r}
+# poids simple
+#visit_year = sample(data_net$visit_year, size = 500, replace = TRUE)
+#newdata=data.frame(visit_year)
+plotpred <- predictY(model1, newdata, var.time = "time",draws = TRUE)
+plot(plotpred)
+```
+
+```{r}
+#datnew   <- data.frame(sample(data_net$mother_age, size = 500, replace = TRUE))
+
+plotpred <- predictY(model1, newdata, var.time ="time", draws = TRUE)
+plot(plotpred)
+```
+
+```{r}
+#taille simple
+# hlme(weight ~ time, subject = "ID", ng = 1, data = as.data.frame(data_analyze))
+model1.2 = hlme(size ~ time, subject = "ID", ng = 1, data = as.data.frame(data_analyze))
+model1.22 = hlme(size ~ time, subject = "ID", ng = 2, data = as.data.frame(data_analyze), mixture =~ time, B = model1.2)
+
+plotpred <- predictY(model1.2, newdata, var.time = "time",draws = TRUE)
+plot(plotpred)
+
+```
+
+```{r}
+model2 <- hlme(size ~ time * sexe, random =~ time, subject = 'ID', ng = 1, data = as.data.frame(data_analyze))
+
+model3 <- hlme(size ~ time * sexe, random =~ time, subject = 'ID', ng = 2, data = as.data.frame(data_analyze), mixture =~ time, B = model2)
+
+```
+
+```{r}
+newdata2 = data_analyze %>%
+select(time,sexe) %>%
+data.frame()
+
+```
+
+```{r}
+#sexe=data_net$sexe
+#newdata1=data.frame(visit_year=seq(2008,2021,length=500), sexe)
+plotpred <- predictY(model2, newdata = newdata2, var.time = "time")
+plot(plotpred)
+
+
+```
+
+```{r}
+#sexe=data_net3$sexe
+#alt_group = data_net3$alt_group
+#mother_age = data_net3$mother_age
+#newdata1=data.frame(visit_year=seq(2008,2021,length=4266), sexe, alt_group, mother_age)
+plotpred <- predictY(model3, newdata = newdata2, var.time = "time")
+plot(plotpred)
+
+```
+
+```{r}
+# poids et taille simple
+mult1 <- multlcmm(size + weight ~ time, random =~ time, subject = "ID",randomY = TRUE,  cor = BM(time), link="linear", data = as.data.frame(data_analyze))
+
+mult2 = multlcmm(size + weight ~ time , random =~ time, subject = 'ID', ng = 3, data = as.data.frame(data_analyze),mixture =~ time)
+
+```
+
+```{r}
+#visit_year = sample(data_net$visit_year, size = 500, replace = TRUE)
+#newdata=data.frame(visit_year)
+plotpred <- predictY(mult2, newdata2, var.time = "time",draws = TRUE)
+plot(plotpred)
+
+```
+
+```{r}
+data_net3 %>%
+select(age) %>%
+unique()
+
+# %% [markdown]
+# # VARIABLE TEMPORELLE : (age)
+
+```
+
+```{r}
+# poids et taille simple
+mult1 <- multlcmm(size + weight ~ time, random =~ time, subject = "ID",randomY = TRUE,  cor = BM(time), link="linear", data = as.data.frame(data_analyze))
+
+mult2 = multlcmm(size + weight ~ time , random =~ time, subject = 'ID', ng = 3, data = as.data.frame(data_analyze),mixture =~ time)
+
+```
+
+```{r}
+plotpred <- predictY(mult2, newdata2, var.time = "time",draws = TRUE)
+plot(plotpred)
+
+```
+
+```{r}
+data_analyze %>%
+head()
+
+```
+
+```{r}
+model2 <- lcmm(weight ~ age,mixture = ~ age,random = ~age ,subject = "ID",ng = 5, data = as.data.frame(data_analyze),link="splines") #,B=model1)
+plotpred2 <- predictY(model2, new_data3,var.time="age")
+plot(plotpred2)
+
+```
+
+```{r}
+new_data = data_analyze %>%
+select(time)
+
+```
+
+```{r}
+model2 <- lcmm(weight ~ time,mixture = ~ time,random = ~time ,subject = "ID",ng = 5, data = as.data.frame(data_analyze),link="splines") #,B=model1)
+plotpred2 <- predictY(model2, new_data,var.time="time",draws = FALSE)
+plot(plotpred2)
+```
+
+# %% [markdown]
+# ## SIZE
+
+```{r}
+model3 <- lcmm(size ~ age,mixture = ~ age,random = ~age ,subject = "ID",ng = 4, data = as.data.frame(data_analyze),link="splines") #,B=model1)
+plotpred_size <- predictY(model3, new_data3,var.time="age",draws = FALSE)
+plot(plotpred_size)
+
+```
+
+```{r}
+model4 <- lcmm(size ~ time,mixture = ~ time,random = ~time ,subject = "ID",ng = 4, data = as.data.frame(data_analyze),link="splines") #,B=model1)
+plotpred_size2 <- predictY(model4, new_data,var.time="time",draws = FALSE)
+plot(plotpred_size2)
+
+```
+
+```{r}
+#anti = data_analyze %>%
+#filter(age <= 3) %>%
+#group_by(ID) %>%
+#count() %>%
+#filter(n == 3)
+
+#anti_join(data_analyze %>% filter(age <= 3),anti)
+
+```
+
+```{r}
+newdata4 = data_analyze %>%
+select(age,time)
+
+
+```
+
+```{r}
+m1.mult <- multlcmm(weight+size~time,subject = "ID",mixture=~time, ng = 4,random=~age, data = as.data.frame(data_analyze),link="splines")
+plotpred <- predictY(m1.mult, newdata4, var.time = "time")
+
+```
+
+```{r}
+plot(plotpred)
+
+```
+
+```{r}
+m1.mult <- multlcmm(weight+size~time,subject = "ID",mixture=~time, ng = 4,random=~age, data = as.data.frame(data_analyze))
+plotpred <- predictY(m1.mult, newdata4, var.time = "time")
+plot(plotpred)
+
+```
+

@@ -1,0 +1,329 @@
+---
+title: "Projet_tut"
+author: "Ely Barbaza"
+date: "17/02/2022"
+output: html_document
+---
+
+
+```{r}
+# Chargement des librairies
+library(readxl)
+library(tidyr)
+library(tidyverse)
+library(survival)
+library(lcmm)
+library(ggpubr)
+library(ggridges)
+```
+
+
+```{r}
+# Chargement des données
+#data = read_xlsx("../input/projet/poids.xlsx")
+raw = read_xlsx("~/M2/projet/poids.xlsx") # 198 x 19 # nolint
+```
+
+```{r}
+data = raw
+summary(data)
+```
+
+```{r, include = FALSE}
+test = raw %>%
+  select(starts_with ("mmuscle")) 
+
+# numérisation des covariables
+# first
+test$mmuscle_first=as.numeric(test$mmuscle_first)
+#test$mgrasse_first =as.numeric(test$mgrasse_first)
+#test$ttaille_first=as.numeric(test$ttaille_first)
+# last
+test$mmuscle_last=as.numeric(test$mmuscle_last)
+#test$mgrasse_last=as.numeric(test$mgrasse_last)
+#test$ttaille_last=as.numeric(test$ttaille_last)
+# postfirst
+test$mmuscle_postfirst=as.numeric(test$mmuscle_postfirst)
+#test$mgrasse_postfirst=as.numeric(test$mgrasse_postfirst)
+#test$ttaille_postfirst=as.numeric(test$ttaille_postfirst)
+# postlast
+test$mmuscle_postlast=as.numeric(test$mmuscle_postlast)
+#test$mgrasse_postlast=as.numeric(test$mgrasse_postlast)
+#test$ttaille_postlast=as.numeric(test$ttaille_postlast)
+
+test %>%
+  summary()
+```
+
+
+```{r}
+# mise en facteur des covariables catégorielles
+data$idPatient=factor(data$idPatient)
+data$sexe=factor(data$sexe)
+
+# numérisation des covariables
+# first
+data$mmuscle_first=as.numeric(data$mmuscle_first)
+data$mgrasse_first =as.numeric(data$mgrasse_first)
+data$ttaille_first=as.numeric(data$ttaille_first)
+# last
+data$mmuscle_last=as.numeric(data$mmuscle_last)
+data$mgrasse_last=as.numeric(data$mgrasse_last)
+data$ttaille_last=as.numeric(data$ttaille_last)
+# postfirst
+data$mmuscle_postfirst=as.numeric(data$mmuscle_postfirst)
+data$mgrasse_postfirst=as.numeric(data$mgrasse_postfirst)
+data$ttaille_postfirst=as.numeric(data$ttaille_postfirst)
+# postlast
+data$mmuscle_postlast=as.numeric(data$mmuscle_postlast)
+data$mgrasse_postlast=as.numeric(data$mgrasse_postlast)
+data$ttaille_postlast=as.numeric(data$ttaille_postlast)
+```
+
+
+```{r}
+data = data %>%
+pivot_longer(c(date_first,date_last,date_postfirst,date_postlast,
+              mmuscle_first,mmuscle_last,mmuscle_postfirst,mmuscle_postlast,
+              mgrasse_first,mgrasse_last,mgrasse_postfirst,mgrasse_postlast,
+              ttaille_first,ttaille_last,ttaille_postfirst,ttaille_postlast),names_to = c(".value","Period"),names_sep = "_")
+```
+
+```{r}
+# date variable
+data$dateNaissance=as.Date(data$dateNaissance)
+data$date=as.Date(data$date)
+```
+
+# %% [markdown]
+# #### Fonction age
+
+```{r}
+age <- function(dob, age.day = today(), units = "years", floor = TRUE) {
+    calc.age = interval(dob, age.day) / duration(num = 1, units = units)
+    if (floor) return(as.integer(floor(calc.age)))
+    return(calc.age)
+}
+```
+
+
+
+```{r}
+# créer la variable age
+# separate jour mois année
+data_net = data %>%
+mutate(age = age_calc(data$dateNaissance,data$date,unit= "years")) %>%
+separate(date,c("Annee","Mois","Jour"))
+```
+
+```{r}
+data_net$Annee=as.numeric(data_net$Annee)
+data_net$Mois=as.numeric(data_net$Mois)
+data_net$Jour=as.numeric(data_net$Jour)
+```
+
+
+```{r}
+data_net %>%
+summary()
+```
+
+```{r}
+IDS = data_net %>%
+  filter(mmuscle <= 50) %>%
+  group_by(idPatient) %>%
+  count() %>%
+  filter(n>3) %>%
+  select(idPatient)
+
+data_net2 = right_join(data_net %>% filter(mmuscle <= 50),IDS)
+```
+
+# %% [markdown]
+# #### Catégorielle
+# - **idPatient** : 792 valeurs (198 patients au total)
+# - **sexe** : 2 valeurs {F (165),H (33)}
+# 
+# #### Numérique
+# | MOMENTS | mmuscle   (kg)        | mgrasse   (g)          | ttaille (cm) | age
+# | ------------- | ------------------- | ------ |----|---|
+# | **Minimum**        |  20.30              | 18.00  | 67.0 | 19.09 |
+# | **1st quartile**    |  27.40  | 37.10 | 93.0  | 46.92|
+# | **Median**   |  29.10  | 40.30| 101.0 |54.71  |
+# | **Mean**   |  30.65  | 40.26 |102.5 |54.42|
+# | **3rd quartile**    |  32.00    |44.10 |111.0|63.84 |
+# | **Max**   | 69.10  | 55.00  | 143.0  |78.24   |
+# | **NA's**   | 31  |29|  | |
+
+
+
+```{r}
+# 3 points y
+# taille : complet
+# mmuscle : 31
+# mgrasse : 29
+
+# 4 points de mesures
+# 2 points de mesures : date_first => date_last 
+# 2 points de mesures : date_first => date_postlast
+# 2 points de mesures : date_postfirst => date_postlast
+```
+
+
+# %% [markdown]
+# # Visualisation
+
+```{r}
+data_net = data_net2 %>%
+select(!c(dateNaissance,Annee))
+```
+
+
+```{r}
+
+data_net %>%
+        select(mmuscle,mgrasse,ttaille,age) %>%
+        gather(variable, value) %>%
+        ggplot(aes(x=value, fill=variable, colour=variable))+
+        geom_density()+
+        facet_wrap(~variable, scales="free") +
+        ggtitle("Densité des variables numériques")
+```
+
+
+# %% [markdown]
+# ## Differences between sex
+
+```{r}
+p1 = ggplot(data_net, aes(x = age, y = sexe, fill = sexe)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p1, top = text_grob("Densité de l'âge stratifié par le sexe", face = "bold", size = 15))
+
+p2 = ggplot(data_net, aes(x = mmuscle, y = sexe, fill = sexe)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p2, top = text_grob("Densité du muscle stratifié par le sexe", face = "bold", size = 15))
+
+p3 = ggplot(data_net, aes(x = mgrasse, y = sexe, fill = sexe)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p3, top = text_grob("Densité de la graisse stratifié par le sexe", face = "bold", size = 15))
+
+p4 = ggplot(data_net, aes(x = ttaille, y = sexe, fill = sexe)) +
+  geom_density_ridges() +
+  theme_ridges() + 
+  theme(legend.position = "none")
+annotate_figure(p4, top = text_grob("Densité de la taille stratifié par le sexe", face = "bold", size = 15))
+
+pmult = ggarrange(p1,p2,p3,p4, common.legend = TRUE, legend = "right")
+annotate_figure(pmult, top = text_grob("Densité des variables numériques stratifié par sexe", face = "bold", size = 15))
+```
+
+
+```{r}
+# 2/ numeric only (muscle,graisse,taille)
+
+
+p1 = data_net %>%
+        ggplot(aes(x=mmuscle, y=mgrasse, color=sexe))+
+        geom_point()
+
+p2 = data_net %>%
+        ggplot(aes(x=mmuscle, y=ttaille, color=sexe))+
+        geom_point()
+
+p3 = data_net %>%
+        ggplot(aes(x=mgrasse, y=ttaille, color=sexe))+
+        geom_point()
+
+# (age vs weight)
+p4 = data_net %>%
+        ggplot(aes(x=age, y=mmuscle, color=sexe))+
+        geom_point()
+
+# (age vs size)
+p5 = data_net %>%
+        ggplot(aes(x=age, y=mgrasse, color=sexe))+
+        geom_point()
+
+pmult = ggarrange(p1,p2,p3,p4,p5, common.legend = TRUE, legend = "right")
+annotate_figure(pmult, top = text_grob("Scatter plot des différentes variables numériques", face = "bold", size = 15))
+```
+
+
+
+# %% [markdown]
+# #### Variables catégorielles
+
+# %% [markdown]
+# ## Version 1 (4 points de mesures)
+
+```{r}
+ID = data_net %>%
+drop_na(mmuscle,mgrasse	) %>%
+group_by(idPatient) %>%
+count() %>%
+filter(n == 4) %>%
+select(idPatient)
+
+data_net2 = right_join(data_net,ID) # 174 observations
+```
+
+
+```{r}
+data_net2$idPatient=as.numeric(data_net2$idPatient)
+```
+
+
+# %% [markdown]
+# #### Fonction Ndoye
+
+```{r}
+data_net2 %>%
+head()
+```
+
+
+```{r}
+model_lcmm = function(formula,data_net2,nclass){
+  model = lcmm(formula, random = ~ Mois, subject = "idPatient", 
+               data = data_net2, ng = nclass,mixture = ~Mois,link = "splines",
+               B = lcmm(formula,random = ~ Mois, subject = "idPatient", 
+               data = data_net2, ng = 1,link = "splines"))
+  return(model)
+}
+model_predict = function(model_name,newdata){
+  pred = predictY(model_name,newdata,var.time = "Mois")
+  plot(pred)
+}
+```
+
+```{r}
+model_tt_1 = model_lcmm(as.formula("ttaille ~ Mois"),as.data.frame(data_net2),nclass = 2)
+model_tt_2 = model_lcmm(as.formula("ttaille ~ Mois"),as.data.frame(data_net2),nclass = 3)
+model_tt_3 = model_lcmm(as.formula("ttaille ~ Mois"),as.data.frame(data_net2),nclass = 4)
+model_tt_4 = model_lcmm(as.formula("ttaille ~ Mois"),as.data.frame(data_net2),nclass = 5)
+s_tt = summarytable(model_tt_1,model_tt_2,model_tt_3,model_tt_4)
+s_tt
+```
+
+
+```{r}
+
+```
+
+```{r}
+model_tt_3$call$fixed = as.formula("ttaille~Mois")
+```
+
+
+```{r}
+newdata = data.frame(Mois=seq(1,12,length=792))
+#model_predict(model_tt_3,newdata)
+```
+
+
