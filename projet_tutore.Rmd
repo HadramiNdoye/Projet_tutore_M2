@@ -1,7 +1,7 @@
 ---
-title: "PROJET TUTORÉ"
-author: "RAMDÉ Ismaïl"
-date: "`r Sys.Date()`"
+title: "projet tutoré"
+author: "Bineta  Faye"
+date: "1/31/2022"
 output:
   pdf_document: default
   html_document: default
@@ -11,336 +11,670 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
-
-
-# Chargement des librairies
+## Chargement du jeu de données 1:
 ```{r}
 library(readxl)
+Mesure=read_xlsx("measures_pmi.xlsx")
+head(Mesure)
+d=Mesure
+######################################
+
+write.csv(data.frame(ID = d$ID,year=d$visit_year,weight=d$weight,birth=d$birth_year,size=d$size,sexe=d$sexe,alt=d$alt_group,d$certif),"data1.csv")
+a=d$weight[!is.na(d$weight)]
+hist(Mesure$weight)
+hist(Mesure$size)
+#par(mfrow=c(1,2))
+plot(Mesure$visit_year,Mesure$weight,type='h')
+```
+
+## modèle avec lcmm
+Nous avons calculer l'âge des enfants à chaque année de visit.
+Puis avons construit les trajectoires du poids et de la taille  des enfants en fonction de l'âge dans un premier temps et puis un modèle multiple poids + taille en fonction de l'âge.
+
+```{r}
 library(tidyr)
-library(tidyverse)
-library(survival)
-library(lcmm)
-```
-# deuxieme jeu de données
-
-```{r}
-library(lcmm)
-data_poids = read_xlsx("poids.xlsx")
-data_poids$date_first=as.Date(data_poids$date_first)
-summary(data_poids)
-```
-
-
-**Un peu du pre-processing**
-
-```{r}
-data_poids$mmuscle_first = as.numeric(data_poids$mmuscle_first)
-data_poids$mgrasse_first = as.numeric(data_poids$mgrasse_first)
-data_poids$mgrasse_last = as.numeric(data_poids$mgrasse_last)
-data_poids$mmuscle_last = as.numeric(data_poids$mmuscle_last)
-data_poids$mmuscle_postfirst = as.numeric(data_poids$mmuscle_postfirst)
-data_poids$mgrasse_postfirst = as.numeric(data_poids$mgrasse_postfirst)
-data_poids$mmuscle_postlast =  as.numeric(data_poids$mmuscle_postlast)
-data_poids$mgrasse_postlast = as.numeric(data_poids$mgrasse_postlast)
-
-data_poids <- data_poids %>%
-     mutate(mmuscle_first=replace_na(mmuscle_first, median(mmuscle_first, na.rm=TRUE)))
-data_poids <- data_poids %>%
-     mutate(mgrasse_first=replace_na(mgrasse_first, median(mgrasse_first, na.rm=TRUE)))
-data_poids <- data_poids %>%
-     mutate(mgrasse_last=replace_na(mgrasse_last, median(mgrasse_last, na.rm=TRUE)))
-data_poids <- data_poids %>%
-     mutate(mmuscle_last=replace_na(mmuscle_last, median(mmuscle_last, na.rm=TRUE)))
-data_poids <- data_poids %>%
-     mutate(mmuscle_postfirst=replace_na(mmuscle_postfirst, median(mmuscle_postfirst, na.rm=TRUE)))
-data_poids <- data_poids %>%
-     mutate(mgrasse_postfirst=replace_na(mgrasse_postfirst, median(mgrasse_postfirst, na.rm=TRUE)))
-data_poids <- data_poids %>%
-     mutate(mmuscle_postlast=replace_na(mmuscle_postlast, median(mmuscle_postlast, na.rm=TRUE)))
-data_poids <- data_poids %>%
-     mutate(mgrasse_postlast=replace_na(mgrasse_postlast, median(mgrasse_postlast, na.rm=TRUE)))
-```
-
-```{r}
-data_poids_clean = write_csv(data_poids,"data_poids_clean.csv")
-```
-
-
-```{r}
-data_mod = read.csv("poids_cleaned.csv")
-# data_mod$moi=  as.numeric(format(as.Date(data_mod$date),format="%m"))
-```
-
-
-Méthode 1 : Modèle simple
-
-```{r}
-model_lcmm = function(formula,data,nclass){
-  model = lcmm(formula, random = ~ Mois, subject = "idPatient", 
-               data = data, ng = nclass,mixture = ~Mois,link = "splines",
-               B = lcmm(formula,random = ~ Mois, subject = "idPatient", 
-               data = data, ng = 1,link = "splines"))
-  return(model)
-}
-model_predict = function(model_name,newdata){
-  pred = predictY(model_name,newdata,var.time = "Mois")
+d1=read.csv("data1.csv")
+data2008=d1#[d1$birth==2008,]
+#data2008=drop_na(data.frame(data2008))
+n=dim(data2008)[1]
+year=data2008$year
+temps=c()
+age=c()
+for(i in 1:n){
+  if((!is.na(year[i])) & (!is.na(data2008$birth[i]))){
+    age[i]=year[i]-data2008$birth[i]
+  if(year[i]==2008)
+    temps[i]=1
+  if(year[i]==2009)
+    temps[i]=2
+  if(year[i]==2010)
+    temps[i]=3
+  if(year[i]==2011)
+    temps[i]=4
+    if(year[i]==2012)
+    temps[i]=5
+  if(year[i]==2013)
+    temps[i]=6
+  if(year[i]==2014)
+    temps[i]=7
+  if(year[i]==2015)
+    temps[i]=8
+    if(year[i]==2016)
+    temps[i]=9
+  if(year[i]==2017)
+    temps[i]=10
+  if(year[i]==2018)
+    temps[i]=11
+  if(year[i]==2019)
+    temps[i]=12
+  if(year[i]==2020)
+    temps[i]=13
+    if(year[i]==2021)
+    temps[i]=14
   }
+  else{(temps[i]=NA)
+    age[i]=NA}
+    }
+data2008=data.frame(data2008,temps,age)
+data2008=data2008[(data2008$age>=0 & data2008$age<3),]
+#data2008=data2008[1:20000,]
+write.csv(data2008,"data_gbtm2008.csv")
 ```
 
-Mèthode 2 : Modèle multiple
+## On va prendre ici que les enfants qui ont des mesures à 0,1,2 
 
 ```{r}
-model_lcmm_multiple = function(formula,data_mod,nclass){
- model = multlcmm(formula, random =~ Mois, 
-                 subject = "idPatient",ng=nclass,randomY = TRUE,cor = BM(Mois), 
-                 link="splines",mixture= ~Mois,data = as.data.frame(data_mod),
-                 B = multlcmm(formula, random =~ Mois, 
-                 subject = "idPatient",ng=1,randomY = TRUE,cor = BM(Mois), 
-                 link="splines",data = as.data.frame(data_mod))
-                )
- return (model)
+### fonction comparant deux vecteurs
+egal=function(x,y){
+  if(length(x)!=length(y))
+    return(FALSE)
+  else{
+    i=1
+    while(i<=length(x) & (x[i]==y[i]))
+      i=i+1
+    
+    if(i>length(x))
+      return(TRUE)
+    else
+      return(FALSE)}
 }
 ```
 
 
-```{r}
-model_tt_2 = model_lcmm(as.formula("ttaille ~ Mois"),data_mod,nclass = 2)
-model_tt_3 = model_lcmm(as.formula("ttaille ~ Mois"),data_mod,nclass = 3)
-model_tt_4 = model_lcmm(as.formula("ttaille ~ Mois"),data_mod,nclass = 4)
-model_tt_5 = model_lcmm(as.formula("ttaille ~ Mois"),data_mod,nclass = 5)
-s_tt = summarytable(model_tt_2,model_tt_3,model_tt_4,model_tt_5)
-```
-
-
-Modèle avec masse grasse
 
 ```{r}
-model_mg_2 = model_lcmm(as.formula("mgrasse ~ Mois"),data_mod,nclass = 2)
-model_mg_3 = model_lcmm(as.formula("mgrasse ~ Mois"),data_mod,nclass = 3)
-model_mg_4 = model_lcmm(as.formula("mgrasse ~ Mois"),data_mod,nclass = 4)
-model_mg_5 = model_lcmm(as.formula("mgrasse ~ Mois"),data_mod,nclass = 5)
-s_mg = summarytable(model_mg_2,model_mg_3,model_mg_4,model_mg_5)
-s_mg
+data2008=data2008[!is.na(data2008$ID),]
+a=data2008$age[!is.na(data2008$age)]
+max(a)
+y=c(0,1,2)
+Bon=data.frame(rbind(data2008[1,]))
+Bon=Bon[-1,]
+identifiants=unique(data2008$ID)
+for(i in 1:length(identifiants)){
+  if(egal(data2008$age[data2008$ID==identifiants[i]],y))
+    Bon=rbind(Bon,data.frame(data2008[data2008$ID==identifiants[i],]))
+}
 ```
 
 ```{r}
-model_mm_2 = model_lcmm(as.formula("mmuscle ~ Mois"),data_mod,nclass = 2)
-model_mm_3 = model_lcmm(as.formula("mmuscle ~ Mois"),data_mod,nclass = 3)
-model_mm_4 = model_lcmm(as.formula("mmuscle ~ Mois"),data_mod,nclass = 4)
-model_mm_5 = model_lcmm(as.formula("mmuscle ~ Mois"),data_mod,nclass = 5)
-s_mm = summarytable(model_mm_2,model_mm_3,model_mm_4,model_mm_5)
-s_mm
+dim(Bon)
+data2008=Bon
+#data2008=data2008[-(data2008$sexe=="Indéterminé"),]
 ```
 
-# Ici on trace les modèles optimaux.
 
+Vu que nous avons plus de $200 000$ observations sur ce jeu de données, nous avons décidé de regardé que ceux qui sont en 2008 pour l'instant.
+## poids
 ```{r}
-model_tt_3$call$fixed = as.formula("ttaille~Mois")
-model_mg_3$call$fixed = as.formula("mgrasse~Mois")
-model_mm_3$call$fixed = as.formula("mmuscle~Mois")
-```
-
-```{r,fig.width=8}
-model_tt_3$data = data_mod
-model_mg_3$data = data_mod
-model_mm_3$data = data_mod
-
-newdata = data.frame(Mois=seq(1,12,length=dim(data_mod)[1]))
-# classe 4
-pred_tt = model_predict(model_tt_3,newdata)
-# classe 3
-pred_mg = model_predict(model_mg_3,newdata)
-# classe 2
-pred_mm = model_predict(model_mm_3,newdata)
-plot(pred_tt,main="Evolution des trajectoires pour le tour de taille",lty=1,legend=NULL,ylab="tour de taille(cm)")
-legend(x="topright",legend=paste0("class",1:3,"(",round(s_tt["model_tt_3",][5:7],2),"%",")"),lty = 1,col=1:3)
-plot(pred_mg,main="Evolution des trajectoires pour la masse grasse",lty=1,legend=NULL,ylab="masse grasse(%)")
-legend(x="bottomleft",legend=paste0("class",1:3,"(",round(s_mg["model_mg_3",][5:7],2),"%",")"),lty = 1,col=1:3)
-plot(pred_mm,main="Evolution des trajectoires pour la masse musculaire",lty=1,legend = NULL,ylab="masse musculaire (%)")
-legend(x="topleft",legend=paste0("class",1:3,"(",round(s_mm["model_mm_3",][5:7],2),"%",")"),lty = 1,col=1:3)
-```
-
-
-Mèthode 2 : modéle multiple
-
-```{r}
-formula_ttmg = as.formula("ttaille+mgrasse~Mois")
-formula_ttmm = as.formula("ttaille+mmuscle~Mois")
-model_ttmg_2 = model_lcmm_multiple(formula_ttmg,data_mod,nclass = 2)
-model_ttmg_3 = model_lcmm_multiple(formula_ttmg,data_mod,nclass = 3)
-model_ttmg_4 = model_lcmm_multiple(formula_ttmg,data_mod,nclass = 4)
-model_ttmg_5 = model_lcmm_multiple(formula_ttmg,data_mod,nclass = 5)
-s_tt_mg = summarytable(model_ttmg_2,model_ttmg_3,model_ttmg_4,model_ttmg_5)
+library(lcmm)
+model1 <- lcmm(weight ~age,subject = "ID",ng = 2,random=~age,mixture=~age, data = data2008,link="splines")
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred1 <- predictY(model1, newdata, var.time = "age")
+plot(plotpred1,main="Trajectoires du poids  avec ng=2",ylab="poids en kg",legend = NULL,lty=1)
+legend(x="topleft", legend=paste0("class ",1:2, "(",round(summarytable(model1)[5:6],2),"%)"),lty=1,col=1:2)
 ```
 
 ```{r}
-model_ttmm_2 = model_lcmm_multiple(formula_ttmm,data_mod,nclass = 2)
-model_ttmm_3 = model_lcmm_multiple(formula_ttmm,data_mod,nclass = 3)
-model_ttmm_4 = model_lcmm_multiple(formula_ttmm,data_mod,nclass = 4)
-model_ttmm_5 = model_lcmm_multiple(formula_ttmm,data_mod,nclass = 5)
-s_tt_mm = summarytable(model_ttmm_2,model_ttmm_3,model_ttmm_4,model_ttmm_5)
-```
-
-```{r}
-formula_mmmg = as.formula("mgrasse+mmuscle~Mois")
-model_mgmm_2 = model_lcmm_multiple(formula_mmmg,data_mod,nclass = 2)
-model_mgmm_3 = model_lcmm_multiple(formula_mmmg,data_mod,nclass = 3)
-model_mgmm_4 = model_lcmm_multiple(formula_mmmg,data_mod,nclass = 4)
-model_mgmm_5 = model_lcmm_multiple(formula_mmmg,data_mod,nclass = 5)
-s_tt_mmmg = summarytable(model_mgmm_2,model_mgmm_3,model_mgmm_4,model_mgmm_5)
+model2 <- lcmm(weight ~ age,mixture = ~age,random=~age,subject = "ID",ng = 3, data = data2008,link="splines")#,B=model1)
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred00 <- predictY(model2, newdata,var.time="age")
+plot(plotpred00,legend=NULL,main="Trajectoires du poids  avec ng=3",ylab="poids en kg")
+legend(x="topleft", legend=paste0("class ",1:3,"(",round(summarytable(model2)[5:7],2),"%)"),lty=1,col=1:3)
 ```
 
 
 ```{r}
-formula_ttmmmg = as.formula("ttaille+mgrasse+mmuscle~Mois")
-model_ttmmmg_2 = model_lcmm_multiple(formula_ttmmmg,data_mod,nclass = 2)
-model_ttmmmg_3 = model_lcmm_multiple(formula_ttmmmg,data_mod,nclass = 3)
-model_ttmmmg_4 = model_lcmm_multiple(formula_ttmmmg,data_mod,nclass = 4)
-model_ttmmmg_5 = model_lcmm_multiple(formula_ttmmmg,data_mod,nclass = 5)
-summarytable(model_ttmmmg_2,model_ttmmmg_3,model_ttmmmg_4,model_ttmmmg_5)
+model3 <- lcmm(weight ~ age,mixture = ~ age,random=~age,subject = "ID",ng = 4, data = data2008,link="splines")#,B=model1)
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred2 <- predictY(model3, newdata,var.time="age")
+plot(plotpred2,legend=NULL,main="Trajectoires du poids  avec ng=4",ylab="poids en kg",lty=1)
+legend(x="topleft", legend=paste0("class ",1:4,"(",round(summarytable(model3)[5:8],2),"%)"),lty=1,col=1:4)
+```
+
+Ici on fait un modéle avec 5 classes
+```{r}
+model4<- lcmm(weight ~ age,mixture = ~ age,random = ~age ,subject = "ID",ng = 5, data = data2008,link="splines") #,B=model1)
+newdata=data.frame(temps=data2008$temps,weight=data2008$weight,age=data2008$age)
+newdata=data.frame(age=seq(0,3,length.out=20000))
+plotpred2 <- predictY(model4, newdata,var.time="age")
+plot(plotpred2,legend=NULL,main="Trajectoires du poids  avec ng=5",ylab="poids en kg",lty=1)
+legend(x="topleft", legend=paste0("class ",1:5,"(",round(summarytable(model4)[5:9],2),"%)"),lty=1,col=1:5)
+```
+
+## Comparaison des modèles pour le choix du nombre de groupes optimal.
+**On se base sur le critère BIC et la taille des groupes**
+
+```{r}
+data.frame(summarytable(model1,model2,model3,model4))
+```
+
+
+
+
+## taille 
+
+```{r}
+m0.taille <- lcmm(size ~ age,random=~age,subject = "ID",ng = 1, data = data2008,link="splines")#,B=model1)
+#newdata=data.frame(temps=data2008$temps,weight=data2008$weight,age=data2008$age)
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred2 <- predictY(m0.taille, newdata,var.time="age",draws = TRUE)
+plot(plotpred2,legend=NULL,main="Trajectoires de la taille  avec ng=1",ylab="taille en cm")
+legend(x="topleft", legend=paste0("class ",1,"(",round(summarytable(m0.taille)[5],2),"%)"),lty=1)
 ```
 
 
 ```{r}
-# model_ttmg_3$call$fixed = formula_ttmg
-# model_ttmm_3$call$fixed = formula_ttmm
-# model_mgmm_2$call$fixed = formula_mmmg
-# # # model_tt_3$data = data_mod
-# # # model_mg_3$data = data_mod
-# # model_mgmm_2$data = data_mod
-# # pred_ttmg = model_predict(model_ttmg_3,newdata)
-# # pred_ttmm = model_predict(model_ttmm_3,newdata)
-# pred_mgmm = model_predict(model_mgmm_2,newdata)
-# # plot(pred_ttmg,main="Tour de taille + masse grasse")
-# # plot(pred_ttmm,main="Tour de taille + masse musculaire")
-# plot(pred_mgmm,main="Masse grasse + masse musculaire")
-```
-
-<!-- On prend que trois classes  -->
-
-<!-- ```{r} -->
-<!-- model_ttmmmg_3$call$fixed = formula_ttmmmg -->
-<!-- model_predict(model_ttmmmg_3,newdata) -->
-<!-- ``` -->
-
-
-
-```{r}
-data_homme = filter(data_mod,sexe=="H")
-data_femme = filter(data_mod,sexe=="F")
-```
-
-Analyse de trajectoire stratifiée selon le sexe.
-
-```{r}
-model_tt_h_2 = model_lcmm(as.formula("ttaille ~ Mois"),data_homme,nclass = 2)
-model_tt_h_3 = model_lcmm(as.formula("ttaille ~ Mois"),data_homme,nclass = 3)
-model_tt_h_4 = model_lcmm(as.formula("ttaille ~ Mois"),data_homme,nclass = 4)
-model_tt_h_5 = model_lcmm(as.formula("ttaille ~ Mois"),data_homme,nclass = 5)
-s_tt_h = summarytable(model_tt_h_2,model_tt_h_3,model_tt_h_4,model_tt_h_5)
+m1.taille <- lcmm(size ~ age,mixture = ~ age,random=~age,subject = "ID",ng = 2, data = data2008,link="splines")#,B=model1)
+#newdata=data.frame(temps=data2008$temps,weight=data2008$weight,age=data2008$age)
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred00 <- predictY(m1.taille, newdata,var.time="age")
+plot(plotpred00,legend=NULL,main="Trajectoires de la taille  avec ng=2",ylab="taille en cm",lty=1)
+legend(x="topleft", legend=paste0("class ",1:2,"(",round(summarytable(m1.taille)[5:6],2),"%)"),lty=1,col=1:2)
 ```
 
 ```{r}
-model_tt_f_2 = model_lcmm(as.formula("ttaille ~ Mois"),data_femme,nclass = 2)
-model_tt_f_3 = model_lcmm(as.formula("ttaille ~ Mois"),data_femme,nclass = 3)
-model_tt_f_4 = model_lcmm(as.formula("ttaille ~ Mois"),data_femme,nclass = 4)
-model_tt_f_5 = model_lcmm(as.formula("ttaille ~ Mois"),data_femme,nclass = 5)
-s_tt_f = summarytable(model_tt_f_2,model_tt_f_3,model_tt_f_4,model_tt_f_5)
+plot(plotpred0,legend=NULL,main="Trajectoires  avec ng=2",ylab="taille en cm",lty=1,ylim=c(2,125))
+plot(plotpred00,legend=NULL,ylab="taille en cm",lty=1,add=TRUE)
+legend(x="topleft", legend=paste0("class ",1:2),lty=1,col=1:2)
+```
+
+
+```{r}
+library(dplyr)
+filtre=data2008 %>% group_by(ID)%>% filter (! duplicated(ID)) 
+dim(filtre)
+b=model2$pprob[2]
+d=m1.taille$pprob[2]
+classe_poids=c()
+classe_taille=c()
+altitude=c()
+for(i in 1:dim(filtre)[1]){
+  classe_poids[i]=paste0("poids_class",b[i,])
+  altitude[i]=paste0("alt",filtre$alt[i])
+  classe_taille[i]=paste0("taille_class",d[i,])}
+filtre$classe_poids=classe_poids
+filtre$classe_taille=classe_taille
+filtre$altitude=altitude
+#dim(filtre)
 ```
 
 ```{r}
-model_tt_h_2$call$fixed = as.formula("ttaille~Mois")
-model_tt_f_2$call$fixed = as.formula("ttaille~Mois")
-
-# model_mg_3$call$fixed = as.formula("mgrasse~Mois")
-# model_mm_3$call$fixed = as.formula("mmuscle~Mois")
+library(GGally)
+ggbivariate(data = filtre, outcome = "classe_poids", explanatory = c("sexe","altitude"))+
+   scale_fill_brewer(palette=6)
 ```
 
-```{r,fig.width=8}
+```{r}
+library(GGally)
+ggbivariate(data = filtre, outcome = "classe_taille", explanatory = c("sexe"))+
+   scale_fill_brewer(palette=6)
+```
+
+
+```{r}
 par(mfrow=c(1,2))
-model_tt_h_2$data = data_homme
-model_tt_f_2$data = data_femme
-
-# model_mg_3$data = data_mod
-# model_mm_3$data = data_mod
-
-newdata = data.frame(Mois=seq(1,12,length=dim(data_mod)[1]))
-# classe 2
-pred_tt_h_2 = model_predict(model_tt_h_2,newdata)
-pred_tt_f_2 = model_predict(model_tt_f_2,newdata)
-
-# # classe 3
-# pred_mg = model_predict(model_mg_3,newdata)
-# # classe 2
-# pred_mm = model_predict(model_mm_3,newdata)
-plot(pred_tt_h_2,main="Trajectoires du tour de taille(Homme)",lty=1,legend=NULL,ylab="tour de taille(cm)")
-legend(x="bottomleft",legend=paste0("class",1:2,"(",round(s_tt_h["model_tt_h_2",][5:6],2),"%",")"),lty = 1,col=1:2)
-
-plot(pred_tt_f_2,main="Trajectoires du tour de taille(Femme)",lty=1,legend=NULL,ylab="tour de taille(cm)")
-legend(x="bottomleft",legend=paste0("class",1:2,"(",round(s_tt_f["model_tt_f_2",][5:6],2),"%",")"),lty = 1,col=1:2)
-# plot(pred_mg,main="Evolution des trajectoires pour la masse grasse",lty=1,legend=NULL,ylab="masse grasse(%)")
-# legend(x="bottomleft",legend=paste0("class",1:3,"(",round(s_mg["model_mg_3",][5:7],2),"%",")"),lty = 1,col=1:3)
-# plot(pred_mm,main="Evolution des trajectoires pour la masse musculaire",lty=1,legend = NULL,ylab="masse musculaire (%)")
-# legend(x="topleft",legend=paste0("class",1:3,"(",round(s_mm["model_mm_3",][5:7],2),"%",")"),lty = 1,col=1:3)
+plot(plotpred0,legend=NULL,main="POIDS avec ng=3",ylab="POIDS en kg",lty=1)
+legend(x="topleft", legend=paste0("class ",1:3,"(",round(summarytable(model2)[5:6],2),"%)"),lty=1,col=1:3)
+plot(plotpred00,legend=NULL,ylab="taille en cm",lty=1,main="Taille avec ng=2")
+legend(x="topleft", legend=paste0("class ",1:2,"(",round(summarytable(m1.taille)[5:6],2),"%)"),lty=1,col=1:2)
 ```
 
-Analyse de l’influence du sexe sur la trajectoire de la masse grasse
-
+```{r,fig}
+#par(mfrow=c(1,2))
+ggbivariate(data = filtre, outcome = "classe_poids", explanatory = c("classe_taille"))+
+   scale_fill_brewer(palette=6,type = "seq")
+```
 
 
 
 ```{r}
-fixed_sex = as.formula("mmuscle~Mois*sexe")
-```
-
-```{r}
-model_mm_sex_2 = model_lcmm(fixed_sex,data_mod,nclass = 2)
-model_mm_sex_3 = model_lcmm(fixed_sex,data_mod,nclass = 3)
-model_mm_sex_4 = model_lcmm(fixed_sex,data_mod,nclass = 4)
-model_mm_sex_5 = model_lcmm(fixed_sex,data_mod,nclass = 5)
-s_mm_sex = summarytable(model_mm_sex_2,model_mm_sex_3,model_mm_sex_4,
-                        model_mm_sex_5)
-s_mm_sex
-```
-
-```{r}
-model_mm_sex_3$call$fixed = fixed_sex
-```
-
-```{r,fig.width=8}
-model_mm_sex_3$data = data_mod
-
-newdata = data.frame(Mois=seq(1,12,length=dim(data_mod)[1]),sexe=rep(0,dim(data_mod)[1]))
-# classe 3
-pred_mm_sex = model_predict(model_mm_sex_3,newdata)
-
-plot(pred_mm_sex,main="Evolution des trajectoires pour la masse musculaire",lty=1,legend=NULL,ylab="masse musculaire(%)")
-legend(x="bottomleft",legend=paste0("class",1:3,"(",round(s_mm_sex["model_mm_sex_3",][5:7],2),"%",")"),lty = 1,col=1:3)
-```
-
-```{r}
-
-model_hlme = function(formula,data,nclass){
-  model = hlme(formula, random = ~ Mois, subject = "idPatient", 
-               data = data, ng = nclass,mixture = ~Mois,
-               B = hlme(formula,random = ~ Mois, subject = "idPatient", 
-               data = data, ng = 1))
-  return(model)
-}
-
+m2.taille <- lcmm(size ~ age,mixture = ~ age,random=~age,subject = "ID",ng = 3, data = data2008,link="splines")#,B=model1)
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred2 <- predictY(m2.taille, newdata,var.time="age")
+plot(plotpred2,legend=NULL,main="Trajectoires de la taille  avec ng=1",ylab="taille en cm")
+legend(x="topleft", legend=paste0("class ",1:3,"(",round(summarytable(m2.taille)[5:7],2),"%)"),lty=1)
 ```
 
 
 ```{r}
-
-model_mg_sex_2 = model_hlme(fixed_sex,data_mod,nclass = 2)
-model_mg_sex_3 = model_hlme(fixed_sex,data_mod,nclass = 3)
-model_mg_sex_4 = model_hlme(fixed_sex,data_mod,nclass = 4)
-model_mg_sex_5 = model_hlme(fixed_sex,data_mod,nclass = 5)
-s_mg_sex = summarytable(model_mg_sex_2,model_mg_sex_3,model_mg_sex_4,
-                        model_mg_sex_5)
-s_mg_sex
+m3.taille <- lcmm(size ~ age,mixture = ~ age,random=~age,subject = "ID",ng = 4, data = data2008,link="splines")#,B=model1)
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred2 <- predictY(m3.taille, newdata,var.time="age")
+plot(plotpred2,legend.loc = "topleft",main="Taille avec ng=4")
 ```
 
+#### Comparaison des trois modèles pour la taille
+
+```{r}
+summarytable(m0.taille,m1.taille,m2.taille,m3.taille)
+```
+
+### taille +poids
+
+```{r}
+m1.mult <- multlcmm(size+weight ~ age,subject = "ID",ng = 2,mixture=~age, data = data2008,random=~age,link = "splines")
+#newdata=data.frame(age=data2008$temps,size=data2008$size,weight=data2008$weight,age=data2008$age)
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred2 <- predictY(m1.mult, newdata,)
+plot(plotpred2,legend.loc = "topleft",main="Taille & Poids ng=2")
+```
+
+
+```{r}
+m2.mult <- multlcmm(size+weight ~ age,subject = "ID",ng = 3,mixture=~age, data = data2008,random=~age,link = "splines")
+#newdata=data.frame(age=data2008$temps,size=data2008$size,weight=data2008$weight,age=data2008$age)
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred2 <- predictY(m2.mult, newdata,)
+plot(plotpred2,legend.loc = "topleft",main="Taille & Poids ng=3")
+```
+
+```{r}
+library(lcmm)
+m3.mult <- multlcmm(weight+size~age,subject = "ID",mixture=~age, ng = 4,random=~age, data = data2008,link="splines")
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred <- predictY(m3.mult, newdata, var.time = "age")
+plot(plotpred,legend.loc = "topleft",main="Taille & Poids ng=4")
+```
+
+```{r}
+m4.mult <- multlcmm(weight+size~age,subject = "ID",mixture=~age, ng = 5,random=~age, data = data2008,link="splines")
+newdata=data.frame(age=seq(0,3,length.out=5000))
+plotpred <- predictY(m4.mult, newdata, var.time = "age")
+plot(plotpred,legend.loc = "topleft",main="Taille & Poids ng=5")
+```
+
+### Comparaison des modèles de Poids + Taille
+```{r}
+summarytable(m1.mult,m2.mult,m3.mult,m4.mult)
+```
+
+
+## Rajout du sexe et du groupe d'altitude
+```{r}
+```
+
+
+## jeu de données d'Ely
+```{r}
+data1=read.csv("~/Downloads/data_4_certif_cleaned-2")
+n=dim(data1)[1]
+#temps=c()
+#for(i in 1:n){
+  #if(data1$certif[i]=="cs8")
+   # temps[i]=1
+  #if(data1$certif[i]=="cs24")
+   # temps[i]=2
+  #if(data1$certif[i]=="bsem")
+   # temps[i]=3}
+#data1$temps=temps
+#head(data1)
+#dim(data1)
+head(data1)
+```
+
+
+```{r}
+model11 <- lcmm(weight ~month,subject = "ID",ng = 2,random=~month,mixture=~month, data = data1,link="splines")
+newdata=data.frame(month=seq(0,60,length.out=1000))
+plotpred0 <- predictY(model11, newdata, var.time = "month")
+plot(plotpred0,main="Trajectoires du poids  avec ng=2",ylab="poids en kg",legend = NULL,lty=1)
+legend(x="topleft", legend=paste0("class ",1:2, "(",round(summarytable(model11)[5:6],2),"%)"),lty=1,col=1:2)
+```
+
+
+```{r}
+model12 <- lcmm(weight ~ month,random=~month,mixture = ~ month,subject = "ID",ng = 3, data = data1,link="splines")#,B=model1)
+newdata=data.frame(month=seq(0,60,length.out=1000))
+plotpred <- predictY(model12, newdata,var.time="month")
+plot(plotpred,legend=NULL,main="Trajectoires du poids  avec ng=3",ylab="poids en kg",lty=1)
+legend(x="topleft", legend=paste0("class ",1:3,"(",round(summarytable(model12)[5:7],2),"%)"),lty=1,col=1:3)
+```
+
+
+```{r}
+model13 <- lcmm(weight ~ month,mixture = ~ month,random=~month,subject = "ID",ng = 4, data = data1,link="splines")#,B=model1)
+newdata=data.frame(month=seq(0,60,length.out=1000))
+plotpred2 <- predictY(model13, newdata,var.time="month")
+plot(plotpred2,legend=NULL,main="Trajectoires du poids  avec ng=4",ylab="poids en kg",lty=1)
+legend(x="topleft", legend=paste0("class ",1:4,"(",round(summarytable(model13)[5:8],2),"%)"),lty=1,col=1:4)
+```
+
+Ici on fait un modéle avec 5 classes
+```{r}
+model14<- lcmm(weight ~ month,mixture = ~ month,random = ~ month,subject = "ID",ng = 5, data = data1,link="splines") #,B=model1)
+newdata=data.frame(temps=data2008$temps,weight=data2008$weight,age=data2008$age)
+newdata=data.frame(month=seq(0,60,length.out=1000))
+plotpred2 <- predictY(model14, newdata,var.time="month")
+plot(plotpred2,legend=NULL,main="Trajectoires du poids  avec ng=5",ylab="poids en kg",lty=1)
+legend(x="topleft", legend=paste0("class ",1:5,"(",round(summarytable(model14)[5:9],2),"%)"),lty=1,col=1:5)
+```
+
+```{r}
+summarytable(model11,model12,model13,model14)
+```
+
+
+### Taille
+
+```{r}
+m11.taille <- lcmm(size ~ month,mixture = ~ month,random=~month,subject = "ID",ng = 2, data = data1,link="splines")#,B=model1)
+newdata=data.frame(month=seq(0,60,length.out=5000))
+plotpred00 <- predictY(m11.taille, newdata,var.time="month")
+plot(plotpred00,legend=NULL,main="Trajectoires de la taille  avec ng=2",ylab="taille en cm",lty=1)
+legend(x="topleft", legend=paste0("class ",1:2,"(",round(summarytable(m11.taille)[5:6],2),"%)"),lty=1,col=1:2)
+```
+
+```{r}
+m12.taille <- lcmm(size ~ month,mixture = ~ month,random=~month,subject = "ID",ng = 3, data = data1,link="splines")#,B=model1)
+newdata=data.frame(month=seq(0,60,length.out=5000))
+plotpred2 <- predictY(m12.taille, newdata,var.time="month")
+plot(plotpred2,legend=NULL,main="Trajectoires de la taille  avec ng=1",ylab="taille en cm")
+legend(x="topleft", legend=paste0("class ",1:3,"(",round(summarytable(m12.taille)[5:7],2),"%)"),lty=1)
+```
+
+
+```{r}
+m13.taille <- lcmm(size ~ month,mixture = ~ month,random=~month,subject = "ID",ng = 4, data = data1,link="splines")#,B=model1)
+newdata=data.frame(month=seq(0,60,length.out=5000))
+plotpred2 <- predictY(m13.taille, newdata,var.time="month")
+plot(plotpred2,legend=NULL,main="Trajectoires de la taille  avec ng=5",ylab="taille en cm")
+legend(x="topleft", legend=paste0("class ",1:4,"(",round(summarytable(m13.taille)[5:8],2),"%)"),lty=1)
+```
+```{r}
+m14.taille <- lcmm(size ~ month,mixture = ~ month,random=~month,subject = "ID",ng = 5, data = data1,link="splines")#,B=model1)
+newdata=data.frame(month=seq(0,60,length.out=5000))
+plotpred2 <- predictY(m14.taille, newdata,var.time="month")
+plot(plotpred2,legend=NULL,main="Trajectoires de la taille  avec ng=5",ylab="taille en cm")
+legend(x="topleft", legend=paste0("class ",1:5,"(",round(summarytable(m14.taille)[5:9],2),"%)"),lty=1)
+```
+
+#### Comparaison des trois modèles pour la taille
+## 2 classer
+```{r}
+summarytable(m11.taille,m12.taille,m13.taille,m14.taille)
+```
+
+## Comparaison des modèles pour le choix du nombre de groupes optimal.
+**On se base sur le critère BIC et la taille des groupes**
+##2 classes
+```{r}
+data.frame(summarytable(model11,model12,model13,model14))
+```
+
+```{r}
+library(dplyr)
+filtre=data1 %>% group_by(ID)%>% filter (! duplicated(ID)) 
+dim(filtre)
+b=model11$pprob[2]
+d=m11.taille$pprob[2]
+classe_poids=c()
+classe_taille=c()
+altitude=c()
+for(i in 1:dim(filtre)[1]){
+  classe_poids[i]=paste0("poids_class",b[i,])
+  altitude[i]=paste0("alt",filtre$alt_group[i])
+  classe_taille[i]=paste0("taille_class",d[i,])}
+filtre$classe_poids=classe_poids
+filtre$classe_taille=classe_taille
+filtre$altitude=altitude
+#dim(filtre)
+head(filtre)
+```
+
+```{r}
+library(GGally)
+ggbivariate(data = filtre, outcome = "classe_poids", explanatory = c("sexe","altitude"))+
+   scale_fill_brewer(palette=6)
+```
+
+```{r}
+library(GGally)
+ggbivariate(data = filtre, outcome = "classe_taille", explanatory = c("sexe"))+
+   scale_fill_brewer(palette=6)
+```
+
+
+```{r}
+par(mfrow=c(1,2))
+plot(plotpred0,legend=NULL,main="POIDS avec ng=2",ylab="POIDS en kg",lty=1)
+legend(x="topleft", legend=paste0("class ",1:2,"(",round(summarytable(model11)[5:6],2),"%)"),lty=1,col=1:2)
+plot(plotpred00,legend=NULL,ylab="taille en cm",lty=1,main="Taille avec ng=2")
+legend(x="topleft", legend=paste0("class ",1:2,"(",round(summarytable(m11.taille)[5:6],2),"%)"),lty=1,col=1:2)
+```
+
+```{r,fig}
+#par(mfrow=c(1,2))
+ggbivariate(data = filtre, outcome = "classe_poids", explanatory = c("classe_taille"))+
+   scale_fill_brewer(palette=6,type = "seq")
+```
+
+
+
+## jeu de donées 2
+Chaque ligne correspond à un patient dont vous avez l’identfiant.
+Les données temporelles sont en colonnes avec les dates (il faudra faire une petite modif de table)
+Le premier temps correspond au suffixe _first
+Le deuxième temps au suffixe _last
+Le troisième temps au suffixe _postfirst
+Le dernier temps au suffixe _postlast
+ 
+3 mesures sont prises à chaque temps : tour de taille (ttaille), masse grasse (mgrasse) et masse musculaire (mmuscle)
+ 
+Ce qui est intéressant : voir comment évolue chaque trajectoire de variable prise séparément, puis ensembles (mmgrasse + mmuscle en premier puis les trois)
+
+## Chargement du jeu de données 2:
+```{r}
+library(readxl)
+d2=read_xlsx("poids.xlsx")
+#head(d2)
+```
+
+```{r}
+data2_clean= read.csv("~/Downloads/data_poids_clean.csv")
+#head(data2_clean)
+```
+
+
+```{r}
+first=julian(as.Date(data2_clean$date_first),origin =as.Date("2020-01-01"))
+data2_clean=data.frame(data2_clean,first)
+#data2_clean=data.frame(data2_clean,last)
+```
+
+********
+**Essai avec la date_first**
+```{r}
+library(lcmm)
+#m2_2 <- lcmm(ttaille_first ~ first,mixture = ~first,random=~1 ,subject = "idPatient",ng = 3,data=data2_clean)#,link="splines")
+#newdata=data.frame(ttaille_first =data2_clean$ttaille_first,first=first)
+#plotpred2_2 <- predictY(m2_2, newdata,var.time="first")
+#plot(plotpred2_2)
+```
+
+
+```{r}
+#m2_2 <- multlcmm(mgrasse_first+ mmuscle_first ~ first,mixture = ~first,random = ~first ,subject = "idPatient",ng = 3,data=data2_clean,link="splines")
+              #,B=model1)
+#newdata=data.frame(mgrasse_first =data2_clean$mgrasse_first,mmuscle_first=data2_clean$mmuscle_first,first=first,ttaille_first=data2_clean$ttaille_first)
+#plotpred2_2 <- predictY(m2_2, newdata,var.time="first")
+#plot(plotpred2_2)
+```
+
+
+```{r}
+#m2_2 <- multlcmm(ttaille_first +mgrasse_first+mmuscle_first ~ first,mixture = ~first,random = ~first ,subject = "idPatient",ng = 3,data=data2_clean)#,link="splines")
+              #,B=model1)
+#newdata=data.frame(mgrasse_first =data2_clean$mgrasse_first,mmuscle_first=data2_clean$mmuscle_first,first=first,ttaille_first=data2_clean$ttaille_first)
+#plotpred2_2 <- predictY(m2_2, newdata,var.time="first")
+#plot(plotpred2_2)
+```
+
+*******
+
+## On recree un nouveau jeu de données en considérant la mgrasse, le ttaille et mmuscle comme une seule variable chacune.
+```{r}
+df=data.frame(idPatient=data2_clean$idPatient,ttaille=data2_clean$ttaille_first,mgrasse=data2_clean$mgrasse_first,mmuscle=data2_clean$mmuscle_first,sexe=data2_clean$sexe,day=first,date=data2_clean$date_first)
+head(df)
+```
+
+
+```{r}
+post_first=julian(as.Date(data2_clean$date_postfirst),origin =as.Date("2020-01-01"))
+last=julian(as.Date(data2_clean$date_last),origin =as.Date("2020-01-01"))
+post_last=julian(as.Date(data2_clean$date_postlast),origin =as.Date("2020-01-01"))
+```
+
+
+```{r}
+########################################
+df=rbind(df,data.frame(idPatient=data2_clean$idPatient,ttaille=data2_clean$ttaille_postfirst,mgrasse=data2_clean$mgrasse_postfirst,mmuscle=data2_clean$mmuscle_postfirst,sexe=data2_clean$sexe,day=post_first,date=data2_clean$date_postfirst))
+########################################
+df=rbind(df,data.frame(idPatient=data2_clean$idPatient,ttaille=data2_clean$ttaille_last,mgrasse=data2_clean$mgrasse_last,mmuscle=data2_clean$mmuscle_last,sexe=data2_clean$sexe,day=last,date=data2_clean$date_last))
+########################################
+df=rbind(df,data.frame(idPatient=data2_clean$idPatient,ttaille=data2_clean$ttaille_postlast,mgrasse=data2_clean$mgrasse_postlast,mmuscle=data2_clean$mmuscle_postlast,sexe=data2_clean$sexe,day=post_last,date=data2_clean$date_postlast))
+```
+
+
+```{r}
+df$month=as.numeric(format(as.Date(df$date),format="%m"))
+df[1:3,]
+```
+## trajectoire de masse grasse 
+```{r}
+#mdf <- lcmm(mgrasse~ month,mixture = ~month,random=~month ,subject = "idPatient",ng = 3,data=df,link="splines")#,B=model1)
+#newdata=data.frame(ttaille =df$ttaille,month=df$month)
+#newdata=data.frame(month=seq(1,12,length.out=700))
+#plotpred_df <- predictY(mdf, newdata,var.time="month")
+#plot(plotpred_df)
+```
+
+## trajectoire de masse musculaire
+```{r}
+#mdf <- lcmm(mmuscle ~ month,mixture =~month ,random=~month,subject = "idPatient",ng = 3,data=df,link="splines")#,B=model1)
+#newdata=data.frame(mmuscle =df$mmuscle,day=df$day)
+#newdata=data.frame(month=seq(1,12,length.out=700))
+#plotpred_df <- predictY(mdf, newdata,var.time="month")
+#plot(plotpred_df,main="masse mmuscle")
+```
+
+## trajectoire de la taille 
+```{r}
+#m2 <-lcmm(ttaille ~ month,subject = "idPatient",ng = 3,mixture=~month, data = df,random=~month,link="splines")
+#newdata=data.frame(mgrasse=df$mgrasse,mmuscle =df$mmuscle,month=df$month)
+#newdata=data.frame(month=seq(1,12,length.out=700))
+#plotpred2 <- predictY(m2, newdata,var.time="month")
+#plot(plotpred2,legend.loc = "topleft",main="ttaille")
+```
+
+## masse muscle + masse grasse ngroupes =3
+```{r}
+#m2 <- multlcmm(mgrasse+mmuscle ~ month,subject = "idPatient",ng = 3,mixture=~month, data = df,random=~month,link="splines")
+#newdata=data.frame(mgrasse=df$mgrasse,mmuscle =df$mmuscle,month=df$month)
+#newdata=data.frame(day=seq(15,196,length.out=700))
+#newdata=data.frame(month=seq(1,12,length.out=700))
+#plotpred2 <- predictY(m2, newdata,var.time="month")
+#plot(plotpred2,legend.loc = "topleft",main="mgrasse & mmuscle")
+```
+
+## mmgrasse +mmuscle nclasses=4
+```{r}
+#m2 <- multlcmm(mgrasse+mmuscle ~ month,subject = "idPatient",ng = 4,mixture=~month, data = df,random=~month,link="splines")
+#newdata=data.frame(mgrasse=df$mgrasse,mmuscle =df$mmuscle,month=df$month)
+#newdata=data.frame(month=seq(1,12,length.out=700))
+#plotpred2 <- predictY(m2, newdata,var.time="month")
+#plot(plotpred2,legend.loc = "topleft",main="mgrasse & mmuscle")
+```
+
+## trajectoire de mmuscle + mgrasse + ttaille
+```{r}
+#m2 <- multlcmm(mgrasse+mmuscle+ttaille ~ month,subject = "idPatient",ng = 4,mixture=~month, data = df,random=~month,link="splines")
+#newdata=data.frame(mgrasse=df$mgrasse,mmuscle =df$mmuscle,month=df$month)
+#newdata=data.frame(month=seq(1,12,length.out=700))
+#plotpred2 <- predictY(m2, newdata,var.time="month")
+#plot(plotpred2,legend.loc = "topleft",main="mgrasse & mmuscle & ttaille")
+```
+
+
+## masse grasse en fonction en fonction du sexe
+On commence par regarder les trajectoires des femmes puis celle des garçons:
+```{r}
+df= poids_cleaned <- read.csv("~/Downloads/poids_cleaned")
+df$month=df$Mois
+H=df[df$sexe=="H",]
+Fam=df[df$sexe=="F",]
+mH <-lcmm(mgrasse~ month,subject = "idPatient",ng = 1,data = H,random=~month,link="splines")
+newdata=data.frame(month=seq(1,12,length.out=700))
+plotpredH<- predictY(mH, newdata,var.time="month",draws=TRUE)
+mF <-lcmm(mgrasse~ month,subject = "idPatient",ng = 1,data = Fam,random=~month,link="splines")
+plotpredF <- predictY(mF, newdata,var.time="month",draws = TRUE)
+plot(plotpredF,col=2,ylim=c(20,45),legend = NULL,main="mgrasse vs sexe")
+plot(plotpredH,col="blue",add=TRUE)
+legend(x="bottomleft", legend=c("Femmes","Hommes"), col=c("red","blue"),lty=2)
+```
+ 
+## masse muscle en fonction en fonction du sexe
+```{r}
+mH_mus <-lcmm(mmuscle~ month,subject = "idPatient",ng = 1,data = H,random=~month)#,link="splines")
+newdata=data.frame(month=seq(1,12,length.out=700))
+plotpredH<- predictY(mH_mus, newdata,var.time="month",draws=TRUE)
+mF_mus <-lcmm(mmuscle~ month,subject = "idPatient",ng = 1,data = Fam,random=~month,link="splines")
+plotpredF <- predictY(mF_mus, newdata,var.time="month",draws = TRUE)
+plot(plotpredF,col=2,ylim=c(20,45),legend = NULL,main="mmuscle vs sexe")
+plot(plotpredH,col="blue",add=TRUE)
+legend(x="bottomleft", legend=c("Femmes","Hommes"), col=c("red","blue"),lty=2)
+```
+
+## tour de taille  en fonction en fonction du sexe
+tour de taile différent du bassin .
+```{r}
+mH_tail <-lcmm(ttaille~ month,subject = "idPatient",ng = 1,data = H,random=~month)#,link="splines")
+newdata=data.frame(month=seq(1,12,length.out=700))
+plotpredH<- predictY(mH_tail, newdata,var.time="month",draws=TRUE)
+mF_tail <-lcmm(ttaille~ month,subject = "idPatient",ng = 1,data = Fam,random=~month,link="splines")
+plotpredF <- predictY(mF_tail, newdata,var.time="month",draws = TRUE)
+plot(plotpredF,col=2,ylim=c(90,125),legend = NULL,main="ttaille vs sexe")
+plot(plotpredH,col="blue",add=TRUE)
+legend(x="bottomleft", legend=c("Femmes","Hommes"), col=c("red","blue"),lty=2)
+```
+
+
+## trajectoires des hommes et des femmes en utilisant join
+
+```{r}
+#m_join <- jlcmm(mgrasse ~ month*sexe,subject = "idPatient",ng = 2,mixture=~month, data = df,random=~month,link="splines")
+#newdata=data.frame(sexe=df$sexe,month=df$month)
+#newdata=data.frame(month=seq(1,12,length.out=700))
+#plotpred2 <- predictY(m_join, newdata,var.time="month")
+#plot(plotpred2,legend.loc = "topleft",main="mgrasse & sexe")
+```
+
+
+## test
+```{r}
+t.test(H$mgrasse,Fam$mgrasse)
+```
+
+```{r}
+#t.test(H$mgrasse[unique(H$idPatient)],Fam$mgrasse[unique(Fam$idPatient)],var.equal = TRUE)
+```
 
