@@ -73,10 +73,11 @@ unique()
 
 ```{r}
 data_net2 = data %>%
-filter(mother_age >= 8) %>%
-drop_na(visit_year,birth_year,size,weight) %>%
-select(!home_birth_insee)
+#filter(mother_age >= 8) %>%
+drop_na(size,weight) #%>% # (visit_year,birth_year)
+#select(!home_birth_insee)
 ```
+
 
  # Statistique descriptive
  
@@ -130,7 +131,24 @@ mutate(age = visit_year - birth_year)
 
 ```{r}
 # suppression des âges incohérents
-data_net2 = subset(data_net2, age >= 0)
+#data_net2 = subset(data_net2, age >= 0)
+#data_net2 %>%
+#  mutate(age = case_when(age < 0 ~ 0))
+
+# création de la variable mois
+# age further
+# verify that bsem > cs24 > cs9 > cs8
+
+data_net2 = data_net2 %>%
+  select(!home_birth_insee) %>%
+  mutate(month = case_when(
+                          certif == "cs8" ~ 0,
+                          certif == "cs9" ~ 9,
+                          certif == "cs24" ~ 24,
+                          (age <= 2 & certif == "bsem") ~ as.double(sample(36:60,size = 1)),
+                          (age > 2 & certif == "bsem") ~ age*12,
+                        ))
+
 
 ```
 
@@ -445,6 +463,19 @@ filter(n == 4) %>%
 select(ID)
 
 data_net4 = right_join(data_net2 ,IDS4)
+```
+
+```{r}
+
+#IDS_supp = data_net3 %>% filter(age == 0 & certif == "bsem") %>% select(ID)
+#data_net_supp = anti_join(data_net3 ,IDS_supp)
+#specID = data_net3 %>% filter(ID == "1515002322")
+
+#data_net_supp = rbind(data_net_supp,specID)
+```
+
+```{r}
+
 ```
 
 ```{r}
