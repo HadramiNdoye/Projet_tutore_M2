@@ -31,29 +31,7 @@ summary(data)
 ```
 
 ```{r, include = FALSE}
-test = raw %>%
-  select(starts_with ("mmuscle")) 
-
-# numérisation des covariables
-# first
-test$mmuscle_first=as.numeric(test$mmuscle_first)
-#test$mgrasse_first =as.numeric(test$mgrasse_first)
-#test$ttaille_first=as.numeric(test$ttaille_first)
-# last
-test$mmuscle_last=as.numeric(test$mmuscle_last)
-#test$mgrasse_last=as.numeric(test$mgrasse_last)
-#test$ttaille_last=as.numeric(test$ttaille_last)
-# postfirst
-test$mmuscle_postfirst=as.numeric(test$mmuscle_postfirst)
-#test$mgrasse_postfirst=as.numeric(test$mgrasse_postfirst)
-#test$ttaille_postfirst=as.numeric(test$ttaille_postfirst)
-# postlast
-test$mmuscle_postlast=as.numeric(test$mmuscle_postlast)
-#test$mgrasse_postlast=as.numeric(test$mgrasse_postlast)
-#test$ttaille_postlast=as.numeric(test$ttaille_postlast)
-
-test %>%
-  summary()
+bineta = read_csv("data/data_df.csv")
 ```
 
 
