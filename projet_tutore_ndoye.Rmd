@@ -1,0 +1,364 @@
+---
+title: "PROJET TUTORÉ"
+author: "RAMDÉ Ismaïl"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+# Chargement des librairies
+```{r}
+library(readxl)
+library(tidyr)
+library(tidyverse)
+library(survival)
+library(lcmm)
+```
+# deuxieme jeu de données
+
+```{r}
+library(lcmm)
+data_poids = read_xlsx("poids.xlsx")
+data_poids$date_first=as.Date(data_poids$date_first)
+summary(data_poids)
+```
+
+
+**Un peu du pre-processing**
+
+```{r}
+data_poids$mmuscle_first = as.numeric(data_poids$mmuscle_first)
+data_poids$mgrasse_first = as.numeric(data_poids$mgrasse_first)
+data_poids$mgrasse_last = as.numeric(data_poids$mgrasse_last)
+data_poids$mmuscle_last = as.numeric(data_poids$mmuscle_last)
+data_poids$mmuscle_postfirst = as.numeric(data_poids$mmuscle_postfirst)
+data_poids$mgrasse_postfirst = as.numeric(data_poids$mgrasse_postfirst)
+data_poids$mmuscle_postlast =  as.numeric(data_poids$mmuscle_postlast)
+data_poids$mgrasse_postlast = as.numeric(data_poids$mgrasse_postlast)
+
+data_poids <- data_poids %>%
+     mutate(mmuscle_first=replace_na(mmuscle_first, median(mmuscle_first, na.rm=TRUE)))
+data_poids <- data_poids %>%
+     mutate(mgrasse_first=replace_na(mgrasse_first, median(mgrasse_first, na.rm=TRUE)))
+data_poids <- data_poids %>%
+     mutate(mgrasse_last=replace_na(mgrasse_last, median(mgrasse_last, na.rm=TRUE)))
+data_poids <- data_poids %>%
+     mutate(mmuscle_last=replace_na(mmuscle_last, median(mmuscle_last, na.rm=TRUE)))
+data_poids <- data_poids %>%
+     mutate(mmuscle_postfirst=replace_na(mmuscle_postfirst, median(mmuscle_postfirst, na.rm=TRUE)))
+data_poids <- data_poids %>%
+     mutate(mgrasse_postfirst=replace_na(mgrasse_postfirst, median(mgrasse_postfirst, na.rm=TRUE)))
+data_poids <- data_poids %>%
+     mutate(mmuscle_postlast=replace_na(mmuscle_postlast, median(mmuscle_postlast, na.rm=TRUE)))
+data_poids <- data_poids %>%
+     mutate(mgrasse_postlast=replace_na(mgrasse_postlast, median(mgrasse_postlast, na.rm=TRUE)))
+```
+
+```{r}
+data_poids_clean = write_csv(data_poids,"data_poids_clean.csv")
+```
+
+
+```{r}
+data_mod = read.csv("poids_cleaned.csv")
+# data_mod$moi=  as.numeric(format(as.Date(data_mod$date),format="%m"))
+```
+
+
+Méthode 1 : Modèle simple
+
+```{r}
+model_lcmm = function(formula,data,nclass){
+  model = lcmm(formula, random = ~ Mois, subject = "idPatient", 
+               data = data, ng = nclass,mixture = ~Mois,link = "splines",
+               B = lcmm(formula,random = ~ Mois, subject = "idPatient", 
+               data = data, ng = 1,link = "splines"))
+  return(model)
+}
+model_predict = function(model_name,newdata){
+  pred = predictY(model_name,newdata,var.time = "Mois")
+  }
+```
+
+Mèthode 2 : Modèle multiple
+
+```{r}
+model_lcmm_multiple = function(formula,data_mod,nclass){
+ model = multlcmm(formula, random =~ Mois, 
+                 subject = "idPatient",ng=nclass,randomY = TRUE,cor = BM(Mois), 
+                 link="splines",mixture= ~Mois,data = as.data.frame(data_mod),
+                 B = multlcmm(formula, random =~ Mois, 
+                 subject = "idPatient",ng=1,randomY = TRUE,cor = BM(Mois), 
+                 link="splines",data = as.data.frame(data_mod))
+                )
+ return (model)
+}
+```
+
+
+```{r}
+model_tt_2 = model_lcmm(as.formula("ttaille ~ Mois"),data_mod,nclass = 2)
+model_tt_3 = model_lcmm(as.formula("ttaille ~ Mois"),data_mod,nclass = 3)
+model_tt_4 = model_lcmm(as.formula("ttaille ~ Mois"),data_mod,nclass = 4)
+model_tt_5 = model_lcmm(as.formula("ttaille ~ Mois"),data_mod,nclass = 5)
+s_tt = summarytable(model_tt_2,model_tt_3,model_tt_4,model_tt_5)
+```
+
+
+Modèle avec masse grasse
+
+```{r}
+model_mg_2 = model_lcmm(as.formula("mgrasse ~ Mois"),data_mod,nclass = 2)
+model_mg_3 = model_lcmm(as.formula("mgrasse ~ Mois"),data_mod,nclass = 3)
+model_mg_4 = model_lcmm(as.formula("mgrasse ~ Mois"),data_mod,nclass = 4)
+model_mg_5 = model_lcmm(as.formula("mgrasse ~ Mois"),data_mod,nclass = 5)
+s_mg = summarytable(model_mg_2,model_mg_3,model_mg_4,model_mg_5)
+s_mg
+```
+
+```{r}
+model_mm_2 = model_lcmm(as.formula("mmuscle ~ Mois"),data_mod,nclass = 2)
+model_mm_3 = model_lcmm(as.formula("mmuscle ~ Mois"),data_mod,nclass = 3)
+model_mm_4 = model_lcmm(as.formula("mmuscle ~ Mois"),data_mod,nclass = 4)
+model_mm_5 = model_lcmm(as.formula("mmuscle ~ Mois"),data_mod,nclass = 5)
+s_mm = summarytable(model_mm_2,model_mm_3,model_mm_4,model_mm_5)
+s_mm
+```
+
+# Ici on trace les modèles optimaux.
+
+```{r}
+model_tt_3$call$fixed = as.formula("ttaille~Mois")
+model_mg_3$call$fixed = as.formula("mgrasse~Mois")
+model_mm_3$call$fixed = as.formula("mmuscle~Mois")
+```
+
+```{r,fig.width=8}
+model_tt_3$data = data_mod
+model_mg_3$data = data_mod
+model_mm_3$data = data_mod
+
+newdata = data.frame(Mois=seq(1,12,length=dim(data_mod)[1]))
+# classe 4
+pred_tt = model_predict(model_tt_3,newdata)
+# classe 3
+pred_mg = model_predict(model_mg_3,newdata)
+# classe 2
+pred_mm = model_predict(model_mm_3,newdata)
+plot(pred_tt,main="Evolution des trajectoires du tour de taille",lty=1,legend=NULL,ylab="tour de taille(cm)")
+legend(x="topright",legend=paste0("class",1:3,"(",round(s_tt["model_tt_3",][5:7],2),"%",")"),lty = 1,col=1:3)
+plot(pred_mg,main="Evolution des trajectoires de la masse grasse",lty=1,legend=NULL,ylab="masse grasse(%)")
+legend(x="bottomleft",legend=paste0("class",1:3,"(",round(s_mg["model_mg_3",][5:7],2),"%",")"),lty = 1,col=1:3)
+plot(pred_mm,main="Evolution des trajectoires de la masse musculaire",lty=1,legend = NULL,ylab="masse musculaire (%)")
+legend(x="topleft",legend=paste0("class",1:3,"(",round(s_mm["model_mm_3",][5:7],2),"%",")"),lty = 1,col=1:3)
+```
+
+
+Mèthode 2 : modéle multiple
+
+```{r}
+formula_ttmg = as.formula("ttaille+mgrasse~Mois")
+formula_ttmm = as.formula("ttaille+mmuscle~Mois")
+model_ttmg_2 = model_lcmm_multiple(formula_ttmg,data_mod,nclass = 2)
+model_ttmg_3 = model_lcmm_multiple(formula_ttmg,data_mod,nclass = 3)
+model_ttmg_4 = model_lcmm_multiple(formula_ttmg,data_mod,nclass = 4)
+model_ttmg_5 = model_lcmm_multiple(formula_ttmg,data_mod,nclass = 5)
+s_tt_mg = summarytable(model_ttmg_2,model_ttmg_3,model_ttmg_4,model_ttmg_5)
+```
+
+```{r}
+model_ttmm_2 = model_lcmm_multiple(formula_ttmm,data_mod,nclass = 2)
+model_ttmm_3 = model_lcmm_multiple(formula_ttmm,data_mod,nclass = 3)
+model_ttmm_4 = model_lcmm_multiple(formula_ttmm,data_mod,nclass = 4)
+model_ttmm_5 = model_lcmm_multiple(formula_ttmm,data_mod,nclass = 5)
+s_tt_mm = summarytable(model_ttmm_2,model_ttmm_3,model_ttmm_4,model_ttmm_5)
+```
+
+```{r}
+formula_mmmg = as.formula("mgrasse+mmuscle~Mois")
+model_mgmm_2 = model_lcmm_multiple(formula_mmmg,data_mod,nclass = 2)
+model_mgmm_3 = model_lcmm_multiple(formula_mmmg,data_mod,nclass = 3)
+model_mgmm_4 = model_lcmm_multiple(formula_mmmg,data_mod,nclass = 4)
+model_mgmm_5 = model_lcmm_multiple(formula_mmmg,data_mod,nclass = 5)
+s_tt_mmmg = summarytable(model_mgmm_2,model_mgmm_3,model_mgmm_4,model_mgmm_5)
+```
+
+
+```{r}
+formula_ttmmmg = as.formula("ttaille+mgrasse+mmuscle~Mois")
+model_ttmmmg_2 = model_lcmm_multiple(formula_ttmmmg,data_mod,nclass = 2)
+model_ttmmmg_3 = model_lcmm_multiple(formula_ttmmmg,data_mod,nclass = 3)
+model_ttmmmg_4 = model_lcmm_multiple(formula_ttmmmg,data_mod,nclass = 4)
+model_ttmmmg_5 = model_lcmm_multiple(formula_ttmmmg,data_mod,nclass = 5)
+summarytable(model_ttmmmg_2,model_ttmmmg_3,model_ttmmmg_4,model_ttmmmg_5)
+```
+
+
+```{r}
+# model_ttmg_3$call$fixed = formula_ttmg
+# model_ttmm_3$call$fixed = formula_ttmm
+# model_mgmm_2$call$fixed = formula_mmmg
+# # # model_tt_3$data = data_mod
+# # # model_mg_3$data = data_mod
+# # model_mgmm_2$data = data_mod
+# # pred_ttmg = model_predict(model_ttmg_3,newdata)
+# # pred_ttmm = model_predict(model_ttmm_3,newdata)
+# pred_mgmm = model_predict(model_mgmm_2,newdata)
+# # plot(pred_ttmg,main="Tour de taille + masse grasse")
+# # plot(pred_ttmm,main="Tour de taille + masse musculaire")
+# plot(pred_mgmm,main="Masse grasse + masse musculaire")
+```
+
+<!-- On prend que trois classes  -->
+
+<!-- ```{r} -->
+<!-- model_ttmmmg_3$call$fixed = formula_ttmmmg -->
+<!-- model_predict(model_ttmmmg_3,newdata) -->
+<!-- ``` -->
+
+
+
+```{r}
+data_homme = filter(data_mod,sexe=="H")
+data_femme = filter(data_mod,sexe=="F")
+```
+
+Analyse de trajectoire stratifiée selon le sexe.
+
+```{r}
+model_tt_h_2 = model_lcmm(as.formula("ttaille ~ Mois"),data_homme,nclass = 2)
+model_tt_h_3 = model_lcmm(as.formula("ttaille ~ Mois"),data_homme,nclass = 3)
+model_tt_h_4 = model_lcmm(as.formula("ttaille ~ Mois"),data_homme,nclass = 4)
+model_tt_h_5 = model_lcmm(as.formula("ttaille ~ Mois"),data_homme,nclass = 5)
+s_tt_h = summarytable(model_tt_h_2,model_tt_h_3,model_tt_h_4,model_tt_h_5)
+```
+
+```{r}
+model_tt_f_2 = model_lcmm(as.formula("ttaille ~ Mois"),data_femme,nclass = 2)
+model_tt_f_3 = model_lcmm(as.formula("ttaille ~ Mois"),data_femme,nclass = 3)
+model_tt_f_4 = model_lcmm(as.formula("ttaille ~ Mois"),data_femme,nclass = 4)
+model_tt_f_5 = model_lcmm(as.formula("ttaille ~ Mois"),data_femme,nclass = 5)
+s_tt_f = summarytable(model_tt_f_2,model_tt_f_3,model_tt_f_4,model_tt_f_5)
+```
+
+```{r}
+model_tt_h_2$call$fixed = as.formula("ttaille~Mois")
+model_tt_f_2$call$fixed = as.formula("ttaille~Mois")
+
+# model_mg_3$call$fixed = as.formula("mgrasse~Mois")
+# model_mm_3$call$fixed = as.formula("mmuscle~Mois")
+```
+
+```{r,fig.width=8}
+par(mfrow=c(1,2))
+model_tt_h_2$data = data_homme
+model_tt_f_2$data = data_femme
+
+# model_mg_3$data = data_mod
+# model_mm_3$data = data_mod
+
+newdata = data.frame(Mois=seq(1,12,length=dim(data_mod)[1]))
+# classe 2
+pred_tt_h_2 = model_predict(model_tt_h_2,newdata)
+pred_tt_f_2 = model_predict(model_tt_f_2,newdata)
+
+# # classe 3
+# pred_mg = model_predict(model_mg_3,newdata)
+# # classe 2
+# pred_mm = model_predict(model_mm_3,newdata)
+plot(pred_tt_h_2,main="Trajectoires du tour de taille(homme)",lty=1,legend=NULL,ylab="tour de taille(cm)")
+legend(x="bottomleft",legend=paste0("class",1:2,"(",round(s_tt_h["model_tt_h_2",][5:6],2),"%",")"),lty = 1,col=1:2)
+
+plot(pred_tt_f_2,main="Trajectoires du tour de taille(femme)",lty=1,legend=NULL,ylab="tour de taille(cm)")
+legend(x="bottomleft",legend=paste0("class",1:2,"(",round(s_tt_f["model_tt_f_2",][5:6],2),"%",")"),lty = 1,col=1:2)
+# plot(pred_mg,main="Evolution des trajectoires pour la masse grasse",lty=1,legend=NULL,ylab="masse grasse(%)")
+# legend(x="bottomleft",legend=paste0("class",1:3,"(",round(s_mg["model_mg_3",][5:7],2),"%",")"),lty = 1,col=1:3)
+# plot(pred_mm,main="Evolution des trajectoires pour la masse musculaire",lty=1,legend = NULL,ylab="masse musculaire (%)")
+# legend(x="topleft",legend=paste0("class",1:3,"(",round(s_mm["model_mm_3",][5:7],2),"%",")"),lty = 1,col=1:3)
+```
+
+Analyse de l’influence du sexe sur la trajectoire de la masse grasse
+
+
+
+
+```{r}
+fixed_sex = as.formula("mmuscle~Mois*sexe")
+```
+
+```{r}
+model_mm_sex_2 = model_lcmm(fixed_sex,data_mod,nclass = 2)
+model_mm_sex_3 = model_lcmm(fixed_sex,data_mod,nclass = 3)
+model_mm_sex_4 = model_lcmm(fixed_sex,data_mod,nclass = 4)
+model_mm_sex_5 = model_lcmm(fixed_sex,data_mod,nclass = 5)
+s_mm_sex = summarytable(model_mm_sex_2,model_mm_sex_3,model_mm_sex_4,
+                        model_mm_sex_5)
+s_mm_sex
+```
+
+```{r}
+model_mm_sex_3$call$fixed = fixed_sex
+```
+
+```{r,fig.width=15}
+par(mfrow=c(1,2))
+model_mm_sex_3$data = data_mod
+
+newdata = data.frame(Mois=seq(1,12,length=dim(data_mod)[1]),sexe=rep(0,dim(data_mod)[1]))
+# classe 3
+pred_mm_sex = model_predict(model_mm_sex_3,newdata)
+plot(pred_mm,main="Evolution des trajectoires de la masse musculaire",lty=1,legend = NULL,ylab="masse musculaire (%)")
+legend(x="topleft",legend=paste0("class",1:3,"(",round(s_mm["model_mm_3",][5:7],2),"%",")"),lty = 1,col=1:3)
+plot(pred_mm_sex,main="Evolution des trajectoires pour la masse musculaire avec le sexe",lty=1,legend=NULL,ylab="masse musculaire(%)")
+legend(x="topleft",legend=paste0("class",1:3,"(",round(s_mm_sex["model_mm_sex_3",][5:7],2),"%",")"),lty = 1,col=1:3)
+```
+
+```{r}
+
+model_hlme = function(formula,data,nclass){
+  model = hlme(formula, random = ~ Mois, subject = "idPatient", 
+               data = data, ng = nclass,mixture = ~Mois,
+               B = hlme(formula,random = ~ Mois, subject = "idPatient", 
+               data = data, ng = 1))
+  return(model)
+}
+
+```
+
+
+```{r}
+
+model_mg_sex_2 = model_hlme(fixed_sex,data_mod,nclass = 2)
+model_mg_sex_3 = model_hlme(fixed_sex,data_mod,nclass = 3)
+model_mg_sex_4 = model_hlme(fixed_sex,data_mod,nclass = 4)
+model_mg_sex_5 = model_hlme(fixed_sex,data_mod,nclass = 5)
+s_mg_sex = summarytable(model_mg_sex_2,model_mg_sex_3,model_mg_sex_4,
+                        model_mg_sex_5)
+s_mg_sex
+```
+
+```{r}
+prob_tt = as.matrix(model_tt_3$pprob)
+data_mod_mat = as.matrix(data_mod)
+id_class = c()
+for(i in 1:length(prob_tt[,1])){
+  for(j in 1:dim(data_mod_mat)[1]){
+    if(data_mod_mat[j,1]==prob_tt[i,1]){
+      id_class = c(id_class,prob_tt[i,2])
+      
+    }
+  }
+}
+data_mod_df = as.data.frame(data_mod_mat)
+data_mod_df$class = id_class
+max(data_mod_df$ttaille[data_mod_df$class==2])
+```
+
